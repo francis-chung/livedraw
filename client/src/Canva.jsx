@@ -5,6 +5,8 @@ export default function Canvas() {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
 
+  // when program opens, open socket and draw according to
+  // other users
   useEffect(() => {
     const ctx = canvasRef.current.getContext('2d');
     ctx.lineWidth = 2;
@@ -20,12 +22,16 @@ export default function Canvas() {
       }
     });
 
+    // when unmounting, offload
     return () => socket.off('draw');
   }, []);
 
+  // nativeEvent wrapped in React event handler
   const startDraw = ({ nativeEvent: { offsetX, offsetY } }) => {
     isDrawing.current = true;
     const canvas = canvasRef.current;
+    // correction code to ensure mouse movement corresponds to
+    // proper location on screen
     const rect = canvas.getBoundingClientRect();
     const x = (offsetX / rect.width) * canvas.width;
     const y = (offsetY / rect.height) * canvas.height;
