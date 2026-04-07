@@ -1,14 +1,26 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
 
-export default function Canvas() {
+const Canvas = forwardRef(function Canvas({ color, brushSize }, ref) {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
 
+  useImperativeHandle(ref, () => ({
+    clear: () => {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+  }));
+
   useEffect(() => {
     const ctx = canvasRef.current.getContext('2d');
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = brushSize;
     ctx.lineCap = 'round';
+  }, [color, brushSize]);
+
+  useEffect(() => {
+    const ctx = canvasRef.current.getContext('2d');
 
     socket.on('draw', ({ x, y, type }) => {
       if (type === 'start') {
@@ -20,7 +32,14 @@ export default function Canvas() {
       }
     });
 
-    return () => socket.off('draw');
+    socket.on('clear', () => {
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    });
+
+    return () => {
+      socket.off('draw');
+      socket.off('clear');
+    };
   }, []);
 
   const startDraw = ({ nativeEvent: { offsetX, offsetY } }) => {
@@ -49,7 +68,6 @@ export default function Canvas() {
 
   const stopDraw = () => {
     isDrawing.current = false;
-    socket.emit('draw', { type: 'end' });
   };
 
   return (
@@ -64,4 +82,6 @@ export default function Canvas() {
       style={{ border: '1px solid #ccc', cursor: 'crosshair' }}
     />
   );
-}
+});
+
+export default Canvas;
