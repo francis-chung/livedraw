@@ -25,18 +25,26 @@ export default function Canvas() {
 
   const startDraw = ({ nativeEvent: { offsetX, offsetY } }) => {
     isDrawing.current = true;
-    const ctx = canvasRef.current.getContext('2d');
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = (offsetX / rect.width) * canvas.width;
+    const y = (offsetY / rect.height) * canvas.height;
+    const ctx = canvas.getContext('2d');
     ctx.beginPath();
-    ctx.moveTo(offsetX, offsetY);
-    socket.emit('draw', { x: offsetX, y: offsetY, type: 'start' });
+    ctx.moveTo(x, y);
+    socket.emit('draw', { x, y, type: 'start' });
   };
 
   const draw = ({ nativeEvent: { offsetX, offsetY } }) => {
     if (!isDrawing.current) return;
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.lineTo(offsetX, offsetY);
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = (offsetX / rect.width) * canvas.width;
+    const y = (offsetY / rect.height) * canvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.lineTo(x, y);
     ctx.stroke();
-    socket.emit('draw', { x: offsetX, y: offsetY, type: 'move' });
+    socket.emit('draw', { x, y, type: 'move' });
   };
 
   const stopDraw = () => {
