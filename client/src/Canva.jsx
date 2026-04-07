@@ -7,7 +7,7 @@ export default function Canvas() {
 
   useEffect(() => {
     const ctx = canvasRef.current.getContext('2d');
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.lineCap = 'round';
 
     socket.on('draw', ({ x, y, type }) => {
