@@ -26,6 +26,7 @@ const Canvas = forwardRef(function Canvas({ color, brushSize }, ref) {
     ctx.strokeStyle = color;
     ctx.lineWidth = brushSize;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
   }, [color, brushSize]);
 
   // when program opens, open socket and draw according to other users' changes
@@ -89,15 +90,17 @@ const Canvas = forwardRef(function Canvas({ color, brushSize }, ref) {
   };
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={800}
-      height={600}
-      onMouseDown={startDraw}
-      onMouseMove={draw}
-      onMouseUp={stopDraw}
-      onMouseLeave={stopDraw}
-    />
+    <div className="canvas-container">
+      <canvas
+        ref={canvasRef}
+        width={800}
+        height={600}
+        onMouseDown={startDraw}
+        onMouseMove={draw}
+        onMouseUp={stopDraw}
+        onMouseLeave={stopDraw}
+      />
+    </div>
   );
 });
 

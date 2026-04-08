@@ -19,6 +19,11 @@ body.light {
   --canvas-border: #cccccc;
   --toolbar-background: #ffffff;
   --sidebar-background: #ffffff;
+  --sidebar-settings-background: rgba(0, 0, 0, 0.04);
+  --sidebar-button: rgba(0, 0, 0, 0.06);
+  --sidebar-button-hover: rgba(0, 0, 0, 0.1);
+  --toolbar-button: rgba(0, 0, 0, 0.02);
+  --toolbar-button-hover: rgba(0, 0, 0, 0.06);
 }
 
 body.dark {
@@ -28,6 +33,11 @@ body.dark {
   --canvas-border: #333333;
   --toolbar-background: #1e1e1e;
   --sidebar-background: #1e1e1e;
+  --sidebar-settings-background: rgba(255, 255, 255, 0.04);
+  --sidebar-button: rgba(255, 255, 255, 0.06);
+  --sidebar-button-hover: rgba(255, 255, 255, 0.1);
+  --toolbar-button: rgba(255, 255, 255, 0.02);
+  --toolbar-button-hover: rgba(255, 255, 255, 0.06);
 }
 
 .app {
@@ -50,7 +60,7 @@ body.dark {
   margin: 0;
 }
 
-.toolbar {
+.drawbar {
   /* default flex-direction: row */
   display: flex;
   gap: 20px;
@@ -63,13 +73,13 @@ body.dark {
   transition: background-color 0.3s;
 }
 
-.tool-group {
+.draw-group {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.tool-group label {
+.draw-group label {
   font-weight: bold;
 }
 
@@ -85,6 +95,11 @@ body.dark {
 
 .clear-btn:hover {
   background-color: #c82333;
+}
+
+.canvas-tools {
+  display: flex;
+  gap: 20px;
 }
 
 .canvas-container {
