@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './hamburgerMenu.css';
+import DarkMode from './DarkMode.jsx';
 
 export default function HamburgerMenu() {
     const [isOpen, setIsOpen] = useState(false);
@@ -45,6 +46,9 @@ export default function HamburgerMenu() {
                             >
                                 ×
                             </button>
+                        </div>
+                        <div className="sidebar-settings">
+                            <DarkMode />
                         </div>
                         <nav className="sidebar-nav">
                             <a href="#">New drawing</a>
