@@ -17,6 +17,9 @@ body.light {
   --canvas-border: #cccccc;
   --toolbar-background: #ffffff;
   --sidebar-background: #ffffff;
+  --sidebar-settings-background: rgba(0, 0, 0, 0.04);
+  --sidebar-button: rgba(0, 0, 0, 0.06);
+  --sidebar-button-hover: rgba(0, 0, 0, 0.1);
 }
 
 body.dark {
@@ -26,6 +29,9 @@ body.dark {
   --canvas-border: #333333;
   --toolbar-background: #1e1e1e;
   --sidebar-background: #1e1e1e;
+  --sidebar-settings-background: rgba(255, 255, 255, 0.04);
+  --sidebar-button: rgba(255, 255, 255, 0.06);
+  --sidebar-button-hover: rgba(255, 255, 255, 0.1);
 }
 
 .app {
