@@ -1,13 +1,43 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Livedraw</title>
+  <style>
+    /* prevents flash of unstyled theme by 
+    applying styles during HTML parsing, before JS */
+    body.light {
+      background-color: #f5f5f5;
+      color: #333333;
+    }
+
+    body.dark {
+      background-color: #121212;
+      color: #e0e0e0;
+    }
+
+    /* disables all transitions while preload class is applied */
+    body.preload * {
+      transition: none !important;
+    }
+  </style>
+</head>
+
+<body class="preload">
+  <script>
+    /* loads theme before JS loads */
+    try {
+      const isDarkMode = JSON.parse(localStorage.getItem("isDarkMode"));
+      document.body.className = isDarkMode ? "dark" : "light";
+    } catch (e) {
+      document.body.className = "light";
+    }
+  </script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>

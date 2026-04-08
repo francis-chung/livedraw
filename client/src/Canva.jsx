@@ -1,5 +1,6 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
+import './App.css';
 
 // forwardRef: allows a ref to enter the function for useImperativeHandle
 // to call a child function of that ref
@@ -96,7 +97,6 @@ const Canvas = forwardRef(function Canvas({ color, brushSize }, ref) {
       onMouseMove={draw}
       onMouseUp={stopDraw}
       onMouseLeave={stopDraw}
-      style={{ border: '1px solid #ccc', cursor: 'crosshair' }}
     />
   );
 });

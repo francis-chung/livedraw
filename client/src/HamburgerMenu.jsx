@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './hamburgerMenu.css';
+import DarkMode from './DarkMode.jsx';
 
 export default function HamburgerMenu() {
     // both states necessary for smooth CSS transition animations
@@ -49,11 +50,9 @@ export default function HamburgerMenu() {
                                 ×
                             </button>
                         </div>
-                        <nav className="sidebar-nav">
-                            <a href="#">New drawing</a>
-                            <a href="#">Settings</a>
-                            <a href="#">Help</a>
-                        </nav>
+                        <div className="sidebar-settings">
+                            <DarkMode />
+                        </div>
                     </aside>
                 </>
             )}

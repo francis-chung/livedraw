@@ -1,11 +1,42 @@
+@font-face {
+  font-family: 'Inter';
+  src: url('../node_modules/@fontsource/inter');
+  font-weight: normal;
+}
+
+/* applies to most of the webpage; used for ease of dark mode transitions */
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  /* animates effect of each variable when they change */
+  transition: background 0.3s, color 0.3s;
+}
+
+body.light {
+  --background-color: #f5f5f5;
+  --text-color: #333333;
+  --canvas-background: #ffffff;
+  --canvas-border: #cccccc;
+  --toolbar-background: #ffffff;
+  --sidebar-background: #ffffff;
+}
+
+body.dark {
+  --background-color: #121212;
+  --text-color: #e0e0e0;
+  --canvas-background: #181818;
+  --canvas-border: #333333;
+  --toolbar-background: #1e1e1e;
+  --sidebar-background: #1e1e1e;
+}
+
 .app {
   display: flex;
   flex-direction: column;
   align-items: center;
   /* at least full height of screen */
   min-height: 100vh;
-  background-color: #f5f5f5;
-  font-family: Arial, sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 .header {
@@ -13,7 +44,6 @@
 }
 
 .header h1 {
-  color: #333;
   /* root em: relative size compared to root element */
   font-size: 2rem;
   /* removes default browser spacing */
@@ -27,9 +57,10 @@
   align-items: center;
   margin-bottom: 20px;
   padding: 10px 20px;
-  background-color: white;
+  background-color: var(--toolbar-background);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s;
 }
 
 .tool-group {
@@ -40,7 +71,6 @@
 
 .tool-group label {
   font-weight: bold;
-  color: #555;
 }
 
 .clear-btn {
@@ -58,15 +88,17 @@
 }
 
 .canvas-container {
-  background-color: white;
+  background-color: var(--canvas-background);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s;
 }
 
 canvas {
   /* fills entire width of container, starts on new line etc. */
   display: block;
-  border: 1px solid #ccc;
+  border: 1px solid var(--canvas-border);
   cursor: crosshair;
+  transition: border-color 0.3s;
 }

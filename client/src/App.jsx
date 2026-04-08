@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './App.css';
@@ -14,6 +14,11 @@ export default function App() {
     canvasRef.current.clear();
     socket.emit('clear');
   };
+
+  // removes preload class to reenable transitions after initial loading
+  useEffect(() => {
+    document.body.classList.remove("preload");
+  }, []);
 
   return (
     <div className="app">
