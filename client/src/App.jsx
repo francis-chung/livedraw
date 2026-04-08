@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './App.css';
+import HamburgerMenu from './HamburgerMenu.jsx';
 
 export default function App() {
   const [color, setColor] = useState('#000000');
@@ -17,7 +18,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Live Whiteboard</h1>
+        <h1>Livedraw</h1>
+        <HamburgerMenu />
       </header>
       <div className="toolbar">
         <div className="tool-group">
