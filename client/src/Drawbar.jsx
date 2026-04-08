@@ -1,4 +1,4 @@
-import './App.css';
+import './editbar.css';
 
 export default function Drawbar({ color, setColor, brushSize, setBrushSize, handleClear }) {
     return (

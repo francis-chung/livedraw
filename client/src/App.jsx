@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
-import './App.css';
+import './app.css';
 import HamburgerMenu from './HamburgerMenu.jsx';
 import Drawbar from './Drawbar.jsx';
 import Toolbar from './Toolbar.jsx';

@@ -1,6 +1,6 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
-import './App.css';
+import './app.css';
 
 const Canvas = forwardRef(function Canvas({ color, brushSize }, ref) {
   const canvasRef = useRef(null);
