@@ -2,6 +2,7 @@
     position: absolute;
     right: 20px;
     top: 15px;
+    /* above all other UI elements */
     z-index: 100;
 }
 
@@ -13,9 +14,12 @@
 }
 
 .menu-backdrop {
+    /* ensures fixed position even with scrolling */
     position: fixed;
+    /* element fills parent container fully */
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
+    /* required for Safari compatibility */
     -webkit-backdrop-filter: blur(1.5px);
     backdrop-filter: blur(1.5px);
     z-index: 90;
@@ -54,6 +58,7 @@
 
 .sidebar-header {
     display: flex;
+    /* first element pushed to far left, last element to far right etc. */
     justify-content: space-between;
     align-items: center;
     gap: 1rem;

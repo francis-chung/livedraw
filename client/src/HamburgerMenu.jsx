@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './hamburgerMenu.css';
 
 export default function HamburgerMenu() {
+    // both states necessary for smooth CSS transition animations
     const [isOpen, setIsOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
 
@@ -9,6 +10,8 @@ export default function HamburgerMenu() {
         setIsOpen(true);
     };
 
+    // isClosing allows smooth transitions in CSS
+    // wait 250 ms until animations finish to reset state
     const closeSidebar = () => {
         setIsClosing(true);
 
