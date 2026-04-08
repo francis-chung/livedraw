@@ -50,11 +50,6 @@ export default function HamburgerMenu() {
                         <div className="sidebar-settings">
                             <DarkMode />
                         </div>
-                        <nav className="sidebar-nav">
-                            <a href="#">New drawing</a>
-                            <a href="#">Settings</a>
-                            <a href="#">Help</a>
-                        </nav>
                     </aside>
                 </>
             )}

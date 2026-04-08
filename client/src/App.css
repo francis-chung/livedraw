@@ -54,6 +54,7 @@ body.dark {
   background-color: var(--toolbar-background);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s;
 }
 
 .tool-group {
@@ -85,10 +86,12 @@ body.dark {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s;
 }
 
 canvas {
   display: block;
   border: 1px solid var(--canvas-border);
   cursor: crosshair;
+  transition: border-color 0.3s;
 }

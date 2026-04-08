@@ -12,6 +12,8 @@
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
+    color: var(--text-color);
+    transition: color 0.3s;
 }
 
 .menu-backdrop {
@@ -44,6 +46,7 @@
     flex-direction: column;
     padding: 1.25rem;
     transform: translateX(100%);
+    transition: background 0.3s;
 }
 
 .sidebar-menu.open {
@@ -68,18 +71,8 @@
     font-size: 1.75rem;
     line-height: 1;
     cursor: pointer;
-}
-
-.sidebar-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.sidebar-nav a {
-    text-decoration: none;
-    padding: 0.65rem 0;
-    border-bottom: 1px solid #f0f0f0;
+    color: var(--text-color);
+    transition: color 0.3s;
 }
 
 @keyframes slideIn {
