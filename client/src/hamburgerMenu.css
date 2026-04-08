@@ -1,3 +1,5 @@
+@import './App.css';
+
 .hamburger-container {
     position: absolute;
     right: 20px;
@@ -35,7 +37,7 @@
     right: 0;
     height: 100vh;
     width: min(320px, 85vw);
-    background: #ffffff;
+    background: var(--sidebar-background);
     box-shadow: -10px 0 34px rgba(0, 0, 0, 0.18);
     z-index: 100;
     display: flex;
@@ -75,7 +77,6 @@
 }
 
 .sidebar-nav a {
-    color: #111111;
     text-decoration: none;
     padding: 0.65rem 0;
     border-bottom: 1px solid #f0f0f0;

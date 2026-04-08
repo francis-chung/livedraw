@@ -9,7 +9,7 @@ export default function DarkMode() {
     const [DarkModeText, setDarkModeText] = useState(isDarkMode ? "Light Mode" : "Dark Mode");
 
     useEffect(() => {
-        // make things dark mode
+        document.body.className = isDarkMode ? "dark" : "light";
         setDarkModeText(isDarkMode ? "Light Mode" : "Dark Mode");
         localStorage.setItem("isDarkMode", JSON.stringify(isDarkMode));
     }, [isDarkMode]);

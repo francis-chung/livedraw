@@ -1,5 +1,6 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
+import './App.css';
 
 const Canvas = forwardRef(function Canvas({ color, brushSize }, ref) {
   const canvasRef = useRef(null);
@@ -79,7 +80,6 @@ const Canvas = forwardRef(function Canvas({ color, brushSize }, ref) {
       onMouseMove={draw}
       onMouseUp={stopDraw}
       onMouseLeave={stopDraw}
-      style={{ border: '1px solid #ccc', cursor: 'crosshair' }}
     />
   );
 });
