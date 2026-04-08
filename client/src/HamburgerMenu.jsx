@@ -15,7 +15,7 @@ export default function HamburgerMenu() {
         setTimeout(() => {
             setIsClosing(false);
             setIsOpen(false);
-        }, 500);
+        }, 250);
     };
 
     return (
