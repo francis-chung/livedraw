@@ -12,30 +12,35 @@ const io = new Server(server, {
     }
 });
 
-let drawingOperations = [];
-let textboxes = [];
+let objects = [];
 
 io.on('connection', (socket) => {
     console.log('a user connected on: ', socket.id);
 
     socket.emit('loadState', {
-        drawingOperations,
-        textboxes
+        objects
     });
 
-    socket.on('draw', (data) => {
-        drawingOperations.push(data);
-        socket.broadcast.emit('draw', data)
+    socket.on('startStroke', (stroke) => {
+        objects.push(stroke);
+        socket.broadcast.emit('startStroke', stroke);
     });
 
-    socket.on('addTextbox', (text) => {
-        textboxes.push(text);
-        socket.broadcast.emit('addTextbox', text);
+    socket.on('appendStroke', ({ id, point }) => {
+        const stroke = objects.find((obj) => obj.id === id && obj.type === 'stroke');
+        if (stroke) {
+            stroke.points.push(point);
+            socket.broadcast.emit('appendStroke', { id, point });
+        }
+    });
+
+    socket.on('addObject', (object) => {
+        objects.push(object);
+        socket.broadcast.emit('addObject', object);
     });
 
     socket.on('clear', () => {
-        drawingOperations = [];
-        textboxes = [];
+        objects = [];
         socket.broadcast.emit('clear');
     });
 

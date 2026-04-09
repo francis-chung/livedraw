@@ -10,39 +10,56 @@ import Toolbar from './Toolbar.jsx';
 export default function App() {
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
-  const [tool, setTool] = useState("draw");
-  const [texts, setTexts] = useState([]);
+  const [tool, setTool] = useState('draw');
+  const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
+  const [selectedObjectId, setSelectedObjectId] = useState(null);
   const canvasRef = useRef();
 
   const handleClear = () => {
     canvasRef.current.clear();
+    setObjects([]);
+    setSelectedObjectId(null);
     socket.emit('clear');
   };
 
   useEffect(() => {
-    document.body.classList.remove("preload");
+    document.body.classList.remove('preload');
 
-    socket.on('loadState', ({ drawingOperations, textboxes: serverTextboxes }) => {
-      setTexts(serverTextboxes);
+    socket.on('loadState', ({ objects: serverObjects }) => {
+      setObjects(serverObjects || []);
     });
 
-    socket.on('addTextbox', (textbox) => {
-      setTexts(prev => [...prev, textbox]);
+    socket.on('startStroke', (stroke) => {
+      setObjects((prev) => [...prev, stroke]);
+    });
+
+    socket.on('appendStroke', ({ id, point }) => {
+      setObjects((prev) => prev.map((obj) =>
+        obj.id === id && obj.type === 'stroke'
+          ? { ...obj, points: [...obj.points, point] }
+          : obj
+      ));
+    });
+
+    socket.on('addObject', (object) => {
+      setObjects((prev) => [...prev, object]);
+    });
+
+    socket.on('clear', () => {
+      setObjects([]);
+      setSelectedObjectId(null);
     });
 
     return () => {
       socket.off('loadState');
-      socket.off('addTextbox');
+      socket.off('startStroke');
+      socket.off('appendStroke');
+      socket.off('addObject');
+      socket.off('clear');
     };
   }, []);
 
-  useEffect(() => {
-    if (tool === "draw") {
-      setColor(color);
-      setBrushSize(brushSize);
-    }
-  }, [tool])
 
   return (
     <div className="app">
@@ -50,13 +67,36 @@ export default function App() {
         <h1>Livedraw</h1>
         <HamburgerMenu />
       </header>
-      {tool === "draw" && <Drawbar color={color} setColor={setColor} brushSize={brushSize} setBrushSize={setBrushSize} handleClear={handleClear} />}
+      {tool === 'draw' && (
+        <Drawbar
+          color={color}
+          setColor={setColor}
+          brushSize={brushSize}
+          setBrushSize={setBrushSize}
+          handleClear={handleClear}
+        />
+      )}
       <div className="canvas-tools">
         <Toolbar tool={tool} setTool={setTool} />
         <div className="canvas-container">
-          <Canvas ref={canvasRef} tool={tool} color={color} brushSize={brushSize} texts={texts} setEditingText={setEditingText} />
-          {tool === "text" && editingText && (
-            <Textbox key={editingText.id} texts={texts} setTexts={setTexts} editingText={editingText} setEditingText={setEditingText} />
+          <Canvas
+            ref={canvasRef}
+            tool={tool}
+            color={color}
+            brushSize={brushSize}
+            objects={objects}
+            setObjects={setObjects}
+            selectedObjectId={selectedObjectId}
+            setSelectedObjectId={setSelectedObjectId}
+            setEditingText={setEditingText}
+          />
+          {tool === 'text' && editingText && (
+            <Textbox
+              objects={objects}
+              setObjects={setObjects}
+              editingText={editingText}
+              setEditingText={setEditingText}
+            />
           )}
         </div>
       </div>
