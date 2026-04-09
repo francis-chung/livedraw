@@ -12,7 +12,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
 
     const replayDrawings = (operations) => {
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      operations.forEach(({ x, y, type }) => {
+      operations.forEach(({ x, y, type, style, width }) => {
+        ctx.strokeStyle = style;
+        ctx.lineWidth = width;
         if (type === 'start') {
           ctx.beginPath();
           ctx.moveTo(x, y);
@@ -29,7 +31,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     });
 
     socket.on('draw', ({ x, y, type }) => {
-      drawingOperationsRef.current.push({ x, y, type });
+      drawingOperationsRef.current.push({ x, y, type, style, width });
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width;
       if (type === 'start') {
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -71,7 +75,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    drawingOperationsRef.current.forEach(({ x, y, type }) => {
+    drawingOperationsRef.current.forEach(({ x, y, type, style, width }) => {
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width;
       if (type === 'start') {
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -92,6 +98,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
   }, [texts]);
 
   const startDraw = ({ nativeEvent: { offsetX, offsetY } }) => {
+    if (offsetX < 0 || offsetY < 0) return;
     isDrawing.current = true;
 
     const canvas = canvasRef.current;
@@ -113,10 +120,14 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
       return;
     }
 
+    drawingOperationsRef.current.push({ x, y, type: 'start', style: color, width: brushSize });
+    console.log(brushSize);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = brushSize;
     ctx.beginPath();
     ctx.moveTo(x, y);
 
-    socket.emit('draw', { x, y, type: 'start' });
+    socket.emit('draw', { x, y, type: 'start', style: color, width: brushSize });
   };
 
   const draw = ({ nativeEvent: { offsetX, offsetY } }) => {
@@ -130,14 +141,17 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     const y = (offsetY / rect.height) * canvas.height;
     const ctx = canvas.getContext('2d');
 
+    drawingOperationsRef.current.push({ x, y, type: 'move', style: color, width: brushSize });
+    console.log(brushSize);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = brushSize;
     ctx.lineTo(x, y);
     ctx.stroke();
 
-    socket.emit('draw', { x, y, type: 'move' });
+    socket.emit('draw', { x, y, type: 'move', style: color, width: brushSize });
   };
 
   const stopDraw = () => {
-    if (tool != "draw") return;
     isDrawing.current = false;
   };
 

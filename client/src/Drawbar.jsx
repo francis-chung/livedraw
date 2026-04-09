@@ -18,7 +18,7 @@ export default function Drawbar({ color, setColor, brushSize, setBrushSize, hand
                     min="1"
                     max="20"
                     value={brushSize}
-                    onChange={(e) => setBrushSize(e.target.value)}
+                    onChange={(e) => setBrushSize(Number(e.target.value))}
                 />
                 <span>{brushSize}px</span>
             </div>
