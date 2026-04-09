@@ -24,7 +24,6 @@ export default function Textbox({ texts, setTexts, editingText, setEditingText }
                 setEditingText({ ...editingText, value: e.target.value })
             }}
             onBlur={() => {
-                console.log("done already???");
                 setTexts([...texts, editingText]);
                 socket.emit('addTextbox', editingText);
                 setEditingText(null);

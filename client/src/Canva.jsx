@@ -18,7 +18,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     // draws drawings from other people onto canvas
     const replayDrawings = (operations) => {
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      operations.forEach(({ x, y, type }) => {
+      operations.forEach(({ x, y, type, style, width }) => {
+        ctx.strokeStyle = style;
+        ctx.lineWidth = width;
         if (type === 'start') {
           ctx.beginPath();
           ctx.moveTo(x, y);
@@ -35,7 +37,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     });
 
     socket.on('draw', ({ x, y, type }) => {
-      drawingOperationsRef.current.push({ x, y, type });
+      drawingOperationsRef.current.push({ x, y, type, style, width });
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width;
       if (type === 'start') {
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -82,7 +86,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    drawingOperationsRef.current.forEach(({ x, y, type }) => {
+    drawingOperationsRef.current.forEach(({ x, y, type, style, width }) => {
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width;
       if (type === 'start') {
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -96,85 +102,88 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
       ctx.font = "16px Arial";
       ctx.fillStyle = "black";
 
-      return () => {
-        socket.off('draw');
-        socket.off('clear');
-      };
-    }, []);
+      t.value.split("\n").forEach((line, i) => {
+        ctx.fillText(line, t.x, t.y + i * 18);
+      });
+    });
+  }, []);
 
-    // nativeEvent wrapped in React event handler
-    const startDraw = ({ nativeEvent: { offsetX, offsetY } }) => {
-      isDrawing.current = true;
+  // nativeEvent wrapped in React event handler  
+  const startDraw = ({ nativeEvent: { offsetX, offsetY } }) => {
+    if (offsetX < 0 || offsetY < 0) return;
+    isDrawing.current = true;
 
-      const canvas = canvasRef.current;
+    const canvas = canvasRef.current;
 
-      // correction code to ensure mouse movement corresponds to
-      // proper location on screen
-      const rect = canvas.getBoundingClientRect();
+    // correction code to ensure mouse movement corresponds to
+    // proper location on screen
+    const rect = canvas.getBoundingClientRect();
 
-      const x = (offsetX / rect.width) * canvas.width;
-      const y = (offsetY / rect.height) * canvas.height;
+    const x = (offsetX / rect.width) * canvas.width;
+    const y = (offsetY / rect.height) * canvas.height;
+    const ctx = canvas.getContext('2d');
 
-      const ctx = canvas.getContext('2d');
+    // draws an empty textbox to the canvas if text tool selected
+    // timeout to ensure that mouseDown does not trigger several 
+    // textbox renders, causing textbox to unmount and disappearing
+    // problems
+    if (tool === "text") {
+      setTimeout(() => {
+        setEditingText({
+          id: crypto.randomUUID(),
+          x,
+          y,
+          value: ""
+        });
+      }, 0);
+      return;
+    }
+    drawingOperationsRef.current.push({ x, y, type: 'start', style: color, width: brushSize });
+    console.log(brushSize);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = brushSize;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
 
-      // draws an empty textbox to the canvas if text tool selected
-      // timeout to ensure that mouseDown does not trigger several 
-      // textbox renders, causing textbox to unmount and disappearing
-      // problems
-      if (tool === "text") {
-        setTimeout(() => {
-          setEditingText({
-            id: crypto.randomUUID(),
-            x,
-            y,
-            value: ""
-          });
-        }, 0);
-        return;
-      }
+    socket.emit('draw', { x, y, type: 'start', style: color, width: brushSize });
+  };
 
-      ctx.beginPath();
-      ctx.moveTo(x, y);
+  const draw = ({ nativeEvent: { offsetX, offsetY } }) => {
+    if (tool !== "draw") return;
+    if (!isDrawing.current) return;
 
-      socket.emit('draw', { x, y, type: 'start' });
-    };
+    const canvas = canvasRef.current;
 
-    const draw = ({ nativeEvent: { offsetX, offsetY } }) => {
-      if (tool !== "draw") return;
-      if (!isDrawing.current) return;
+    const rect = canvas.getBoundingClientRect();
 
-      const canvas = canvasRef.current;
+    const x = (offsetX / rect.width) * canvas.width;
+    const y = (offsetY / rect.height) * canvas.height;
 
-      const rect = canvas.getBoundingClientRect();
+    drawingOperationsRef.current.push({ x, y, type: 'move', style: color, width: brushSize });
+    console.log(brushSize);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = brushSize;
+    ctx.lineTo(x, y);
+    ctx.stroke();
 
-      const x = (offsetX / rect.width) * canvas.width;
-      const y = (offsetY / rect.height) * canvas.height;
+    socket.emit('draw', { x, y, type: 'move', style: color, width: brushSize });
+  };
 
-      const ctx = canvas.getContext('2d');
+  const stopDraw = () => {
+    isDrawing.current = false;
+  };
 
-      ctx.lineTo(x, y);
-      ctx.stroke();
-
-      socket.emit('draw', { x, y, type: 'move' });
-    };
-
-    const stopDraw = () => {
-      if (tool != "draw") return;
-      isDrawing.current = false;
-    };
-
-    return (
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={600}
-        onMouseDown={startDraw}
-        onMouseMove={draw}
-        onMouseUp={stopDraw}
-        onMouseLeave={stopDraw}
-      />
-    );
-  })
+  return (
+    <canvas
+      ref={canvasRef}
+      width={800}
+      height={600}
+      onMouseDown={startDraw}
+      onMouseMove={draw}
+      onMouseUp={stopDraw}
+      onMouseLeave={stopDraw}
+    />
+  );
 });
 
 export default Canvas;

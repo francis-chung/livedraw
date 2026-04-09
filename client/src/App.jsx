@@ -12,7 +12,6 @@ export default function App() {
   const [brushSize, setBrushSize] = useState(2);
   const [tool, setTool] = useState("draw");
   const [texts, setTexts] = useState([]);
-  // const [editingText, setEditingText] = useState({ id: 1, x: 100, y: 100, value: "hello" });
   const [editingText, setEditingText] = useState(null);
   const canvasRef = useRef();
 
@@ -40,6 +39,13 @@ export default function App() {
       socket.off('addTextbox');
     };
   }, []);
+
+  useEffect(() => {
+    if (tool === "draw") {
+      setColor(color);
+      setBrushSize(brushSize);
+    }
+  }, [tool])
 
   return (
     <div className="app">
