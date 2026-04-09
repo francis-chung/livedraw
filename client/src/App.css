@@ -103,6 +103,8 @@ body.dark {
 }
 
 .canvas-container {
+  /* allows children with absolute position to be relative to this */
+  position: relative;
   background-color: var(--canvas-background);
   padding: 20px;
   border-radius: 8px;
@@ -111,6 +113,7 @@ body.dark {
 }
 
 canvas {
+  z-index: 1;
   /* fills entire width of container, starts on new line etc. */
   display: block;
   border: 1px solid var(--canvas-border);

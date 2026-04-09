@@ -1,0 +1,48 @@
+@import './app.css';
+
+.drawbar {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px 20px;
+    background-color: var(--toolbar-background);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s;
+}
+
+.draw-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.draw-group label {
+    font-weight: bold;
+}
+
+.clear-btn {
+    padding: 8px 16px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.clear-btn:hover {
+    background-color: #c82333;
+}
+
+.textbox-container {
+    position: absolute;
+    z-index: 10;
+    min-width: 150px;
+    min-height: 24px;
+    font: 16px sans-serif;
+    border: 1px solid black;
+    padding: 4px;
+    background: white;
+}

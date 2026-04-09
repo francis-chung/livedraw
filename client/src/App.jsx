@@ -1,15 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
-import './App.css';
+import './app.css';
 import HamburgerMenu from './HamburgerMenu.jsx';
 import Drawbar from './Drawbar.jsx';
+import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
 
 export default function App() {
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
   const [tool, setTool] = useState("draw");
+  const [texts, setTexts] = useState([]);
+  // const [editingText, setEditingText] = useState({ id: 1, x: 100, y: 100, value: "hello" });
+  const [editingText, setEditingText] = useState(null);
   const canvasRef = useRef();
 
   // clear screen function
@@ -18,9 +22,23 @@ export default function App() {
     socket.emit('clear');
   };
 
-  // removes preload class to reenable transitions after initial loading
   useEffect(() => {
+    // removes preload class to reenable transitions after initial loading
     document.body.classList.remove("preload");
+
+    // waits for server updates, then sends text changes to canvas
+    socket.on('loadState', ({ drawingOperations, textboxes: serverTextboxes }) => {
+      setTexts(serverTextboxes);
+    });
+
+    socket.on('addTextbox', (textbox) => {
+      setTexts(prev => [...prev, textbox]);
+    });
+
+    return () => {
+      socket.off('loadState');
+      socket.off('addTextbox');
+    };
   }, []);
 
   return (
@@ -32,7 +50,12 @@ export default function App() {
       {tool === "draw" && <Drawbar color={color} setColor={setColor} brushSize={brushSize} setBrushSize={setBrushSize} handleClear={handleClear} />}
       <div className="canvas-tools">
         <Toolbar tool={tool} setTool={setTool} />
-        <Canvas ref={canvasRef} color={color} brushSize={brushSize} />
+        <div className="canvas-container">
+          <Canvas ref={canvasRef} tool={tool} color={color} brushSize={brushSize} texts={texts} setEditingText={setEditingText} />
+          {tool === "text" && editingText && (
+            <Textbox key={editingText.id} texts={texts} setTexts={setTexts} editingText={editingText} setEditingText={setEditingText} />
+          )}
+        </div>
       </div>
     </div>
   );
