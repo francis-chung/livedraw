@@ -1,8 +1,10 @@
 import { useRef } from 'react';
+import socket from './socket.js';
 import './editbar.css';
 
 export default function Textbox({ texts, setTexts, editingText, setEditingText }) {
-    const padding = 20; // matches .canvas-container padding
+    const paddingX = 16;
+    const paddingY = 1;
     const ref = useRef(null);
 
     return (
@@ -11,8 +13,8 @@ export default function Textbox({ texts, setTexts, editingText, setEditingText }
             className="textbox-container"
             style={{
                 position: "absolute",
-                left: editingText.x + padding,
-                top: editingText.y + padding,
+                left: editingText.x + paddingX,
+                top: editingText.y + paddingY,
                 color: "black"
             }}
             autoFocus
@@ -23,6 +25,7 @@ export default function Textbox({ texts, setTexts, editingText, setEditingText }
             onBlur={() => {
                 console.log("done already???");
                 setTexts([...texts, editingText]);
+                socket.emit('addTextbox', editingText);
                 setEditingText(null);
             }}
         />

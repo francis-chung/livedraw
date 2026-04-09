@@ -12,14 +12,30 @@ const io = new Server(server, {
     }
 });
 
+let drawingOperations = [];
+let textboxes = [];
+
 io.on('connection', (socket) => {
     console.log('a user connected on: ', socket.id);
 
+    socket.emit('loadState', {
+        drawingOperations,
+        textboxes
+    });
+
     socket.on('draw', (data) => {
+        drawingOperations.push(data);
         socket.broadcast.emit('draw', data)
     });
 
+    socket.on('addTextbox', (text) => {
+        textboxes.push(text);
+        socket.broadcast.emit('addTextbox', text);
+    });
+
     socket.on('clear', () => {
+        drawingOperations = [];
+        textboxes = [];
         socket.broadcast.emit('clear');
     });
 

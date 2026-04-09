@@ -12,6 +12,7 @@ export default function App() {
   const [brushSize, setBrushSize] = useState(2);
   const [tool, setTool] = useState("draw");
   const [texts, setTexts] = useState([]);
+  // const [editingText, setEditingText] = useState({ id: 1, x: 100, y: 100, value: "hello" });
   const [editingText, setEditingText] = useState(null);
   const canvasRef = useRef();
 
@@ -22,6 +23,19 @@ export default function App() {
 
   useEffect(() => {
     document.body.classList.remove("preload");
+
+    socket.on('loadState', ({ drawingOperations, textboxes: serverTextboxes }) => {
+      setTexts(serverTextboxes);
+    });
+
+    socket.on('addTextbox', (textbox) => {
+      setTexts(prev => [...prev, textbox]);
+    });
+
+    return () => {
+      socket.off('loadState');
+      socket.off('addTextbox');
+    };
   }, []);
 
   return (
@@ -36,7 +50,7 @@ export default function App() {
         <div className="canvas-container">
           <Canvas ref={canvasRef} tool={tool} color={color} brushSize={brushSize} texts={texts} setEditingText={setEditingText} />
           {tool === "text" && editingText && (
-            <Textbox texts={texts} setTexts={setTexts} editingText={editingText} setEditingText={setEditingText} />
+            <Textbox key={editingText.id} texts={texts} setTexts={setTexts} editingText={editingText} setEditingText={setEditingText} />
           )}
         </div>
       </div>

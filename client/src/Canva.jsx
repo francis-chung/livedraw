@@ -5,11 +5,31 @@ import './app.css';
 const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEditingText }, ref) {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
+  const drawingOperationsRef = useRef([]);
 
   useEffect(() => {
     const ctx = canvasRef.current.getContext('2d');
 
+    const replayDrawings = (operations) => {
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      operations.forEach(({ x, y, type }) => {
+        if (type === 'start') {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+        } else if (type === 'move') {
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+      });
+    };
+
+    socket.on('loadState', ({ drawingOperations, textboxes: serverTextboxes }) => {
+      drawingOperationsRef.current = drawingOperations;
+      replayDrawings(drawingOperations);
+    });
+
     socket.on('draw', ({ x, y, type }) => {
+      drawingOperationsRef.current.push({ x, y, type });
       if (type === 'start') {
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -20,12 +40,14 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     });
 
     socket.on('clear', () => {
+      drawingOperationsRef.current = [];
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     });
 
     return () => {
       socket.off('draw');
       socket.off('clear');
+      socket.off('loadState');
     };
   }, []);
 
@@ -49,6 +71,16 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
+    drawingOperationsRef.current.forEach(({ x, y, type }) => {
+      if (type === 'start') {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+      } else if (type === 'move') {
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+    });
+
     texts.forEach((t) => {
       ctx.font = "16px Arial";
       ctx.fillStyle = "black";
@@ -58,13 +90,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
       });
     });
   }, [texts]);
-
-  useEffect(() => {
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.font = "32px Arial";
-    ctx.fillStyle = "black";
-    ctx.fillText("TEST", 100, 100);
-  }, []);
 
   const startDraw = ({ nativeEvent: { offsetX, offsetY } }) => {
     isDrawing.current = true;
@@ -77,7 +102,14 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, texts, setEd
     const ctx = canvas.getContext('2d');
 
     if (tool === "text") {
-      setEditingText({ x: x, y: y, value: "" });
+      setTimeout(() => {
+        setEditingText({
+          id: crypto.randomUUID(),
+          x,
+          y,
+          value: ""
+        });
+      }, 0);
       return;
     }
 
