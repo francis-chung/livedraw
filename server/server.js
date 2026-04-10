@@ -23,33 +23,39 @@ const io = new Server(server, {
 });
 
 // stores state on the server
-let drawingOperations = [];
-let textboxes = [];
+let objects = [];
 
 // once connection is established, activate socket emitters and listeners
+// runs on every connection being made
 io.on('connection', (socket) => {
     console.log('a user connected on: ', socket.id);
 
     // emits current state of canvas
     socket.emit('loadState', {
-        drawingOperations,
-        textboxes
+        objects
     });
 
-    // waits for clients to send data, then broadcasts to everyone else
-    socket.on('draw', (data) => {
-        drawingOperations.push(data);
-        socket.broadcast.emit('draw', data)
+    // waits for this client to send data, then broadcasts to everyone else
+    socket.on('startStroke', (stroke) => {
+        objects.push(stroke);
+        socket.broadcast.emit('startStroke', stroke);
     });
 
-    socket.on('addTextbox', (text) => {
-        textboxes.push(text);
-        socket.broadcast.emit('addTextbox', text);
+    socket.on('appendStroke', ({ id, point }) => {
+        const stroke = objects.find((obj) => obj.id === id && obj.type === 'stroke');
+        if (stroke) {
+            stroke.points.push(point);
+            socket.broadcast.emit('appendStroke', { id, point });
+        }
+    });
+
+    socket.on('addObject', (object) => {
+        objects.push(object);
+        socket.broadcast.emit('addObject', object);
     });
 
     socket.on('clear', () => {
-        drawingOperations = [];
-        textboxes = [];
+        objects = [];
         socket.broadcast.emit('clear');
     });
 

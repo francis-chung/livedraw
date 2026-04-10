@@ -2,8 +2,9 @@ import { useRef } from 'react';
 import socket from './socket.js';
 import './editbar.css';
 
-export default function Textbox({ texts, setTexts, editingText, setEditingText }) {
+export default function Textbox({ objects, setObjects, editingText, setEditingText }) {
     // padding to ensure textbox stays on canvas in the right position
+    // also to ensure proper rendering after saving editing text
     const paddingX = 16;
     const paddingY = 1;
     const ref = useRef(null);
@@ -24,8 +25,8 @@ export default function Textbox({ texts, setTexts, editingText, setEditingText }
                 setEditingText({ ...editingText, value: e.target.value })
             }}
             onBlur={() => {
-                setTexts([...texts, editingText]);
-                socket.emit('addTextbox', editingText);
+                setObjects([...objects, editingText]);
+                socket.emit('addObject', editingText);
                 setEditingText(null);
             }}
         />
