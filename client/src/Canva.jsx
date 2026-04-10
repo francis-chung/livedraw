@@ -65,14 +65,22 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
     return x >= bounds.left && x <= bounds.left + bounds.width && y >= bounds.top && y <= bounds.top + bounds.height;
   };
 
-  const drawStroke = (ctx, stroke) => {
-    if (!stroke.points || stroke.points.length === 0) return;
+  const drawSegment = (ctx, p1, p2, stroke) => {
     ctx.strokeStyle = stroke.color;
     ctx.lineWidth = stroke.width;
+
     ctx.beginPath();
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-    stroke.points.slice(1).forEach(({ x, y }) => ctx.lineTo(x, y));
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
     ctx.stroke();
+  };
+
+  const drawStroke = (ctx, stroke) => {
+    if (!stroke.points || stroke.points.length === 0) return;
+    const points = stroke.points;
+    for (let i = 1; i < points.length; i++) {
+      drawSegment(ctx, points[i - 1], points[i], stroke);
+    }
   };
 
   const drawText = (ctx, textObject) => {
@@ -193,13 +201,10 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
 
     const currentStroke = objects.find((object) => object.id === currentStrokeId.current);
     if (currentStroke) {
-      ctx.strokeStyle = currentStroke.color;
-      ctx.lineWidth = currentStroke.width;
-      ctx.beginPath();
-      const lastPoint = currentStroke.points[currentStroke.points.length - 1];
-      ctx.moveTo(lastPoint.x, lastPoint.y);
-      ctx.lineTo(x, y);
-      ctx.stroke();
+      const points = currentStroke.points;
+      const last = points[points.length - 2];
+      const current = points[points.length - 1];
+      drawSegment(ctx, last, current, stroke);
     }
 
     socket.emit('appendStroke', {
