@@ -7,42 +7,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
 
-  useEffect(() => {
-    socket.on('loadState', ({ objects: serverObjects }) => {
-      setObjects(serverObjects || []);
-    });
-
-    socket.on('startStroke', (stroke) => {
-      setObjects((prev) => [...prev, stroke]);
-    });
-
-    socket.on('appendStroke', ({ id, point }) => {
-      setObjects((prev) => prev.map((obj) =>
-        obj.id === id && obj.type === 'stroke'
-          ? { ...obj, points: [...obj.points, point] }
-          : obj
-      ));
-    });
-
-    socket.on('addObject', (object) => {
-      setObjects((prev) => [...prev, object]);
-    });
-
-    socket.on('clear', () => {
-      setObjects([]);
-      setSelectedObjectId(null);
-      currentStrokeId.current = null;
-    });
-
-    return () => {
-      socket.off('loadState');
-      socket.off('startStroke');
-      socket.off('appendStroke');
-      socket.off('addObject');
-      socket.off('clear');
-    };
-  }, [setObjects, setSelectedObjectId]);
-
   useImperativeHandle(ref, () => ({
     clear: () => {
       const ctx = canvasRef.current.getContext('2d');

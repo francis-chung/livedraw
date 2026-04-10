@@ -58,7 +58,7 @@ export default function App() {
       socket.off('addObject');
       socket.off('clear');
     };
-  }, []);
+  }, [setObjects, setSelectedObjectId]);
 
 
   return (
