@@ -28,7 +28,7 @@ export default function App() {
     // removes preload class to reenable transitions after initial loading    
     document.body.classList.remove('preload');
 
-    // waits for server updates, then sends changes to canvas    
+    // waits for server updates, then sends changes to canvas
     socket.on('loadState', ({ objects: serverObjects }) => {
       setObjects(serverObjects || []);
     });
