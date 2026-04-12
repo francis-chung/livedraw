@@ -7,10 +7,13 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
 
+  const displayWidth = 800;
+  const displayHeight = 600;
+
   useImperativeHandle(ref, () => ({
     clear: () => {
       const ctx = canvasRef.current.getContext('2d');
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
     }
   }));
 
@@ -18,8 +21,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     return {
-      x: (offsetX / rect.width) * canvas.width,
-      y: (offsetY / rect.height) * canvas.height,
+      x: (offsetX / rect.width) * displayWidth,
+      y: (offsetY / rect.height) * displayHeight,
     };
   };
 
@@ -107,7 +110,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, displayWidth, displayHeight);
 
     objects.forEach((object) => {
       if (object.type === 'stroke') {
@@ -127,8 +130,20 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+
+    ctx.scale(dpr, dpr);
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+  }, []);
+
+  useEffect(() => {
     redraw();
   }, [objects, selectedObjectId]);
 
