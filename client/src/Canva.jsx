@@ -2,7 +2,7 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
 import './app.css';
 
-const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectId, setSelectedObjectId, setEditingText }, ref) {
+const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectId, setSelectedObjectId, hoveredObjectId, setHoveredObjectId, setEditingText }, ref) {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
@@ -96,12 +96,14 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     });
   };
 
-  const drawSelection = (ctx, object) => {
+  const drawSelection = (ctx, object, clicked) => {
     const bounds = getObjectBounds(ctx, object);
     ctx.save();
     ctx.strokeStyle = '#0078d4';
     ctx.lineWidth = 1;
-    ctx.setLineDash([6, 4]);
+    if (clicked) {
+      ctx.setLineDash([6, 4]);
+    }
     ctx.strokeRect(bounds.left, bounds.top, bounds.width, bounds.height);
     ctx.restore();
   };
@@ -122,7 +124,12 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
     const selectedObject = objects.find((object) => object.id === selectedObjectId);
     if (selectedObject) {
-      drawSelection(ctx, selectedObject);
+      drawSelection(ctx, selectedObject, true);
+    }
+
+    const hoveredObject = objects.find((object) => object.id === hoveredObjectId);
+    if (hoveredObject) {
+      drawSelection(ctx, hoveredObject, false);
     }
   };
 
@@ -151,7 +158,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
   useEffect(() => {
     redraw();
-  }, [objects, selectedObjectId]);
+  }, [objects, selectedObjectId, hoveredObjectId]);
 
   const handleClick = ({ nativeEvent }) => {
     const { offsetX, offsetY } = nativeEvent;
@@ -205,6 +212,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
   const handleDrag = ({ nativeEvent }) => {
     const { x, y } = getCanvasCoords(nativeEvent);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
     if (tool === 'draw') {
       setObjects((prev) => prev.map((obj) =>
@@ -219,32 +229,37 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       });
     }
 
-    else if (tool === 'select' && isDragging.current && selectedObjectId) {
-      const dx = x - dragStart.current.x;
-      const dy = y - dragStart.current.y;
+    else if (tool === 'select') {
+      if (isDragging.current && selectedObjectId) {
+        const dx = x - dragStart.current.x;
+        const dy = y - dragStart.current.y;
 
-      setObjects((prev) => prev.map((obj) => {
-        if (obj.id !== selectedObjectId) return obj;
-        if (obj.type === 'stroke') {
-          return {
-            ...obj,
-            points: obj.points.map((p) => ({
-              x: p.x + dx,
-              y: p.y + dy
-            }))
-          };
-        }
-        if (obj.type === 'text') {
-          return {
-            ...obj,
-            x: obj.x + dx,
-            y: obj.y + dy
-          };
-        }
-        return obj;
-      }));
+        setObjects((prev) => prev.map((obj) => {
+          if (obj.id !== selectedObjectId) return obj;
+          if (obj.type === 'stroke') {
+            return {
+              ...obj,
+              points: obj.points.map((p) => ({
+                x: p.x + dx,
+                y: p.y + dy
+              }))
+            };
+          }
+          if (obj.type === 'text') {
+            return {
+              ...obj,
+              x: obj.x + dx,
+              y: obj.y + dy
+            };
+          }
+          return obj;
+        }));
 
-      dragStart.current = { x, y };
+        dragStart.current = { x, y };
+      } else {
+        const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
+        setHoveredObjectId((hitObject && hitObject.id !== selectedObjectId) ? hitObject.id : null);
+      }
     }
   };
 
