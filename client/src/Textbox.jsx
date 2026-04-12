@@ -5,10 +5,11 @@ import './editbar.css';
 export default function Textbox({ objects, setObjects, editingText, setEditingText }) {
     // padding to ensure textbox stays on canvas in the right position
     // also to ensure proper rendering after saving editing text
-    const paddingX = 16;
-    const paddingY = 1;
+    const paddingX = 21;
+    const paddingY = 20;
     const ref = useRef(null);
 
+    // fontSize factor in top property of style also required for padding
     return (
         <textarea
             ref={ref}
@@ -16,8 +17,9 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
             style={{
                 position: "absolute",
                 left: editingText.x + paddingX,
-                top: editingText.y + paddingY,
-                color: "black"
+                top: editingText.y - 0.9 * editingText.fontSize + paddingY,
+                font: `${editingText.fontSize}px Arial`,
+                color: editingText.textColor
             }}
             autoFocus
             value={editingText.value || ""}

@@ -2,20 +2,24 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
 import './app.css';
 
-const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, setObjects, selectedObjectId, setSelectedObjectId, setEditingText }, ref) {
+const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectId, setSelectedObjectId, setEditingText }, ref) {
   // useRef: similar to useState, but does not cause a screen re-render
-  // only for when data not shown on-screen is modified
+  // only for when data not shown on-screen is modified  
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
 
+  // size of the canvas
+  const displayWidth = 800;
+  const displayHeight = 600;
+
   // useImperativeHandle: custom adds methods to a parent's ref (App.jsx)
   // especially for imperative objects, such as canvas drawing
-  // bypasses React state
+  // bypasses React state  
   useImperativeHandle(ref, () => ({
     clear: () => {
       const ctx = canvasRef.current.getContext('2d');
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
     }
   }));
 
@@ -28,8 +32,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
     // divide by rect variables to normalize, then multiply 
     // by canvas variables so canvas can draw in the right place
     return {
-      x: (offsetX / rect.width) * canvas.width,
-      y: (offsetY / rect.height) * canvas.height,
+      x: (offsetX / rect.width) * displayWidth,
+      y: (offsetY / rect.height) * displayHeight,
     };
   };
 
@@ -58,8 +62,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
   const getTextBounds = (ctx, textObject) => {
     const fontSize = textObject.fontSize || 16;
     // ctx.measureText(...) relies on accurate font definition
-    ctx.font = `${fontSize}px Arial`;
-
+    ctx.font = `${textObject.fontSize}px Arial`;
     const lines = (textObject.value || '').split('\n');
     const lineHeight = fontSize * 1.2;
 
@@ -113,10 +116,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
   };
 
   const drawText = (ctx, textObject) => {
-    const fontSize = textObject.fontSize || 16;
-    ctx.font = `${fontSize}px Arial`;
-    ctx.fillStyle = textObject.color || 'black';
-
+    ctx.font = `${textObject.fontSize}px Arial`;
+    ctx.fillStyle = textObject.textColor;
     const lines = (textObject.value || '').split('\n');
     lines.forEach((line, index) => {
       ctx.fillText(line, textObject.x, textObject.y + index * fontSize * 1.2);
@@ -145,7 +146,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, displayWidth, displayHeight);
 
     objects.forEach((object) => {
       if (object.type === 'stroke') {
@@ -161,13 +162,29 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
     }
   };
 
-  // redraws every time objects are added or selected
+  // runs on mount
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+
+    // since CSS pixels and device pixels differ, an adjustment is made
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+
+    // every coordinate drawn on-screen is also scaled to prevent offsets
+    ctx.scale(dpr, dpr);
+    // visual size of canvas remains the same despite internal changes
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+  }, []);
+
+  // redraws every time objects are added or selected
+  useEffect(() => {
     redraw();
   }, [objects, selectedObjectId]);
 
@@ -207,8 +224,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
           x,
           y,
           value: '',
-          color: 'black',
-          fontSize: 16,
+          textColor: textColor,
+          fontSize: fontSize,
         });
       }, 0);
       return;
@@ -267,8 +284,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
   return (
     <canvas
       ref={canvasRef}
-      width={800}
-      height={600}
+      width={displayWidth}
+      height={displayHeight}
       onMouseDown={startDraw}
       onMouseMove={draw}
       onMouseUp={stopDraw}

@@ -1,9 +1,9 @@
 import './editbar.css';
 
-export default function Drawbar({ color, setColor, brushSize, setBrushSize, handleClear }) {
+export default function Drawbar({ color, setColor, brushSize, setBrushSize }) {
     return (
-        <div className="drawbar">
-            <div className="draw-group">
+        <div className="editbar">
+            <div className="edit-group">
                 <label>Color:</label>
                 <input
                     type="color"
@@ -11,7 +11,7 @@ export default function Drawbar({ color, setColor, brushSize, setBrushSize, hand
                     onChange={(e) => setColor(e.target.value)}
                 />
             </div>
-            <div className="draw-group">
+            <div className="edit-group">
                 <label>Brush Size:</label>
                 <input
                     type="range"
@@ -22,7 +22,6 @@ export default function Drawbar({ color, setColor, brushSize, setBrushSize, hand
                 />
                 <span>{brushSize}px</span>
             </div>
-            <button onClick={handleClear} className="clear-btn">Clear Canvas</button>
         </div>
     )
 }
