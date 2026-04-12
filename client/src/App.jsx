@@ -18,6 +18,7 @@ export default function App() {
   const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
   const [selectedObjectId, setSelectedObjectId] = useState(null);
+  const [hoveredObjectId, setHoveredObjectId] = useState(null);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
   const canvasRef = useRef();
 
@@ -137,6 +138,8 @@ export default function App() {
             setObjects={setObjects}
             selectedObjectId={selectedObjectId}
             setSelectedObjectId={setSelectedObjectId}
+            hoveredObjectId={hoveredObjectId}
+            setHoveredObjectId={setHoveredObjectId}
             setEditingText={setEditingText}
           />
           {tool === 'text' && editingText && (

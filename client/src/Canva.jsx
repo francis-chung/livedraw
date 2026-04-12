@@ -2,9 +2,9 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
 import './app.css';
 
-const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectId, setSelectedObjectId, setEditingText }, ref) {
+const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectId, setSelectedObjectId, hoveredObjectId, setHoveredObjectId, setEditingText }, ref) {
   // useRef: similar to useState, but does not cause a screen re-render
-  // only for when data not shown on-screen is modified  
+  // only for when data not shown on-screen is modified    
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
@@ -126,7 +126,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     });
   };
 
-  const drawSelection = (ctx, object) => {
+  const drawSelection = (ctx, object, clicked) => {
     const bounds = getObjectBounds(ctx, object);
 
     // stores the current state of ctx so that later modifications
@@ -134,10 +134,11 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     ctx.save();
     ctx.strokeStyle = '#0078d4';
     ctx.lineWidth = 1;
-    // 6px drawn, 4px gap 
-    ctx.setLineDash([6, 4]);
-
-    // draws rectangular outline
+    if (clicked) {
+      // 6px drawn, 4px gap only if selected
+      ctx.setLineDash([6, 4]);
+    }
+    // draws rectangular outline    
     ctx.strokeRect(bounds.left, bounds.top, bounds.width, bounds.height);
     // removes all temporary modifications of ctx and restores
     // previous state
@@ -160,7 +161,12 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
     const selectedObject = objects.find((object) => object.id === selectedObjectId);
     if (selectedObject) {
-      drawSelection(ctx, selectedObject);
+      drawSelection(ctx, selectedObject, true);
+    }
+
+    const hoveredObject = objects.find((object) => object.id === hoveredObjectId);
+    if (hoveredObject) {
+      drawSelection(ctx, hoveredObject, false);
     }
   };
 
@@ -194,7 +200,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
   useEffect(() => {
     redraw();
-  }, [objects, selectedObjectId]);
+  }, [objects, selectedObjectId, hoveredObjectId]);
 
   const handleClick = ({ nativeEvent }) => {
     const { offsetX, offsetY } = nativeEvent;
@@ -254,6 +260,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
   const handleDrag = ({ nativeEvent }) => {
     const { x, y } = getCanvasCoords(nativeEvent);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
     if (tool === 'draw') {
       setObjects((prev) => prev.map((obj) =>
@@ -268,34 +277,39 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       });
     }
 
-    else if (tool === 'select' && isDragging.current && selectedObjectId) {
-      const dx = x - dragStart.current.x;
-      const dy = y - dragStart.current.y;
+    else if (tool === 'select') {
+      if (isDragging.current && selectedObjectId) {
+        const dx = x - dragStart.current.x;
+        const dy = y - dragStart.current.y;
 
-      // moves the each of the selected object's coordinates by {dx, dy}
-      setObjects((prev) => prev.map((obj) => {
-        if (obj.id !== selectedObjectId) return obj;
-        if (obj.type === 'stroke') {
-          return {
-            ...obj,
-            points: obj.points.map((p) => ({
-              x: p.x + dx,
-              y: p.y + dy
-            }))
-          };
-        }
-        if (obj.type === 'text') {
-          return {
-            ...obj,
-            x: obj.x + dx,
-            y: obj.y + dy
-          };
-        }
-        return obj;
-      }));
+        // moves the each of the selected object's coordinates by {dx, dy}        
+        setObjects((prev) => prev.map((obj) => {
+          if (obj.id !== selectedObjectId) return obj;
+          if (obj.type === 'stroke') {
+            return {
+              ...obj,
+              points: obj.points.map((p) => ({
+                x: p.x + dx,
+                y: p.y + dy
+              }))
+            };
+          }
+          if (obj.type === 'text') {
+            return {
+              ...obj,
+              x: obj.x + dx,
+              y: obj.y + dy
+            };
+          }
+          return obj;
+        }));
 
-      // updates reference point for dragging
-      dragStart.current = { x, y };
+        // updates reference point for dragging
+        dragStart.current = { x, y };
+      } else { // creates hover effect if object is not selected object
+        const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
+        setHoveredObjectId((hitObject && hitObject.id !== selectedObjectId) ? hitObject.id : null);
+      }
     }
   };
 
