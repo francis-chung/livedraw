@@ -151,7 +151,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     redraw();
   }, [objects, selectedObjectId]);
 
-  const startDraw = ({ nativeEvent }) => {
+  const handleClick = ({ nativeEvent }) => {
     const { offsetX, offsetY } = nativeEvent;
     if (offsetX < 0 || offsetY < 0) return;
 
@@ -196,7 +196,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     }
   };
 
-  const draw = ({ nativeEvent }) => {
+  const handleDrag = ({ nativeEvent }) => {
     if (tool !== 'draw' || !isDrawing.current) return;
     const { x, y } = getCanvasCoords(nativeEvent);
 
@@ -212,7 +212,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     });
   };
 
-  const stopDraw = () => {
+  const handleLeave = () => {
     isDrawing.current = false;
     currentStrokeId.current = null;
   };
@@ -222,10 +222,10 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       ref={canvasRef}
       width={displayWidth}
       height={displayHeight}
-      onMouseDown={startDraw}
-      onMouseMove={draw}
-      onMouseUp={stopDraw}
-      onMouseLeave={stopDraw}
+      onMouseDown={handleClick}
+      onMouseMove={handleDrag}
+      onMouseUp={handleLeave}
+      onMouseLeave={handleLeave}
     />
   );
 });
