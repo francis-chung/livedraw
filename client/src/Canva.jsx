@@ -151,29 +151,37 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     redraw();
   }, [objects, selectedObjectId]);
 
-  const handleSelection = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const hitObject = [...objects].reverse().find((object) => isPointInsideObject(ctx, x, y, object));
-    setSelectedObjectId(hitObject ? hitObject.id : null);
-  };
-
   const startDraw = ({ nativeEvent }) => {
     const { offsetX, offsetY } = nativeEvent;
     if (offsetX < 0 || offsetY < 0) return;
 
-    if (tool === 'select') {
-      handleSelection({ nativeEvent });
-      return;
-    }
-
     const { x, y } = getCanvasCoords(nativeEvent);
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
-    if (tool === 'text') {
+    if (tool === 'draw') {
+      setSelectedObjectId(null);
+      isDrawing.current = true;
+      const stroke = {
+        id: crypto.randomUUID(),
+        type: 'stroke',
+        color,
+        width: brushSize,
+        points: [{ x, y }],
+      };
+
+      setObjects((prev) => [...prev, stroke]);
+      currentStrokeId.current = stroke.id;
+      socket.emit('startStroke', stroke);
+    }
+
+    else if (tool === 'select') {
+      const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
+      setSelectedObjectId(hitObject ? hitObject.id : null);
+    }
+
+    else if (tool === 'text') {
       setTimeout(() => {
         setEditingText({
           id: crypto.randomUUID(),
@@ -185,24 +193,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
           fontSize: fontSize,
         });
       }, 0);
-      return;
     }
-
-    if (tool !== 'draw') return;
-
-    setSelectedObjectId(null);
-    isDrawing.current = true;
-    const stroke = {
-      id: crypto.randomUUID(),
-      type: 'stroke',
-      color,
-      width: brushSize,
-      points: [{ x, y }],
-    };
-
-    setObjects((prev) => [...prev, stroke]);
-    currentStrokeId.current = stroke.id;
-    socket.emit('startStroke', stroke);
   };
 
   const draw = ({ nativeEvent }) => {
