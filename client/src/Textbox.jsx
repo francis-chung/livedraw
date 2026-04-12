@@ -1,13 +1,30 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import socket from './socket.js';
 import './editbar.css';
 
-export default function Textbox({ objects, setObjects, editingText, setEditingText }) {
+export default function Textbox({ objects, setObjects, editingText, setEditingText, interactingWithTextbar }) {
     // padding to ensure textbox stays on canvas in the right position
-    // also to ensure proper rendering after saving editing text
+    // also to ensure proper rendering after saving editing text    
     const paddingX = 21;
     const paddingY = 20;
     const ref = useRef(null);
+
+    // only saves textbox and deactivates textarea when not interacting with textbar
+    const handleBlur = () => {
+        if (!interactingWithTextbar) {
+            setObjects([...objects, editingText]);
+            socket.emit('addObject', editingText);
+            setEditingText(null);
+        }
+    }
+
+    // refocuses textarea every time mouse leaves textbar to facilitate saving
+    useEffect(() => {
+        if (!interactingWithTextbar) {
+            document.querySelector('.textbox-container').focus();
+        }
+    }, [interactingWithTextbar]);
+
 
     // fontSize factor in top property of style also required for padding
     return (
@@ -26,11 +43,7 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
             onChange={(e) => {
                 setEditingText({ ...editingText, value: e.target.value })
             }}
-            onBlur={() => {
-                setObjects([...objects, editingText]);
-                socket.emit('addObject', editingText);
-                setEditingText(null);
-            }}
+            onBlur={handleBlur}
         />
     )
 }
