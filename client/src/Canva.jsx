@@ -185,38 +185,50 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
   // redraws every time objects are added or selected
   useEffect(() => {
+    if (tool !== "select") {
+      setSelectedObjectId(null);
+    }
+  }, [tool]);
+
+  useEffect(() => {
     redraw();
   }, [objects, selectedObjectId]);
 
-  // finds uppermost object selected by mouse and changes ID state
-  const handleSelection = ({ nativeEvent }) => {
+  const handleClick = ({ nativeEvent }) => {
+    const { offsetX, offsetY } = nativeEvent;
+    if (offsetX < 0 || offsetY < 0) return;
+
     const { x, y } = getCanvasCoords(nativeEvent);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // searches objects in reverse order to find uppermost
-    // object in stack
-    const hitObject = [...objects].reverse().find((object) => isPointInsideObject(ctx, x, y, object));
-    setSelectedObjectId(hitObject ? hitObject.id : null);
-  };
+    if (tool === 'draw') {
+      setSelectedObjectId(null);
+      isDrawing.current = true;
+      const stroke = {
+        id: crypto.randomUUID(),
+        type: 'stroke',
+        color,
+        width: brushSize,
+        points: [{ x, y }],
+      };
 
-  const startDraw = ({ nativeEvent }) => {
-    const { offsetX, offsetY } = nativeEvent;
-    if (offsetX < 0 || offsetY < 0) return;
-
-    if (tool === 'select') {
-      handleSelection({ nativeEvent });
-      return;
+      setObjects((prev) => [...prev, stroke]);
+      currentStrokeId.current = stroke.id;
+      socket.emit('startStroke', stroke);
     }
 
-    const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    else if (tool === 'select') {
+      // searches objects in reverse order to find uppermost
+      // object in stack
+      const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
+      setSelectedObjectId(hitObject ? hitObject.id : null);
+    }
 
-    // setTimeout() required so clicking on canvas doesn't focus 
-    // on canvas again and trigger onBlur() after initially creating textbox
-    if (tool === 'text') {
+    else if (tool === 'text') {
+      // setTimeout() required so clicking on canvas doesn't focus 
+      // on canvas again and trigger onBlur() after initially creating textbox    
       setTimeout(() => {
         setEditingText({
           id: crypto.randomUUID(),
@@ -228,33 +240,13 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
           fontSize: fontSize,
         });
       }, 0);
-      return;
     }
-
-    if (tool !== 'draw') return;
-
-    setSelectedObjectId(null);
-    isDrawing.current = true;
-    const stroke = {
-      id: crypto.randomUUID(),
-      type: 'stroke',
-      color,
-      width: brushSize,
-      points: [{ x, y }],
-    };
-
-    setObjects((prev) => [...prev, stroke]);
-    currentStrokeId.current = stroke.id;
-    socket.emit('startStroke', stroke);
   };
 
-  const draw = ({ nativeEvent }) => {
+  const handleDrag = ({ nativeEvent }) => {
     if (tool !== 'draw' || !isDrawing.current) return;
 
     const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
 
     setObjects((prev) => prev.map((obj) =>
       obj.id === currentStrokeId.current && obj.type === 'stroke'
@@ -262,21 +254,13 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
         : obj
     ));
 
-    const currentStroke = objects.find((object) => object.id === currentStrokeId.current);
-    if (currentStroke) {
-      const points = currentStroke.points;
-      const last = points[points.length - 2];
-      const current = points[points.length - 1];
-      drawSegment(ctx, last, current, stroke);
-    }
-
     socket.emit('appendStroke', {
       id: currentStrokeId.current,
       point: { x, y },
     });
   };
 
-  const stopDraw = () => {
+  const handleLeave = () => {
     isDrawing.current = false;
     currentStrokeId.current = null;
   };
@@ -286,10 +270,10 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       ref={canvasRef}
       width={displayWidth}
       height={displayHeight}
-      onMouseDown={startDraw}
-      onMouseMove={draw}
-      onMouseUp={stopDraw}
-      onMouseLeave={stopDraw}
+      onMouseDown={handleClick}
+      onMouseMove={handleDrag}
+      onMouseUp={handleLeave}
+      onMouseLeave={handleLeave}
     />
   );
 });

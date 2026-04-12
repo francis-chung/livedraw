@@ -4,6 +4,7 @@ import socket from './socket.js';
 import './app.css';
 import HamburgerMenu from './HamburgerMenu.jsx';
 import Drawbar from './Drawbar.jsx';
+import Selectbar from './Selectbar.jsx';
 import Textbar from './Textbar.jsx';
 import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
@@ -26,6 +27,13 @@ export default function App() {
     setSelectedObjectId(null);
     socket.emit('clear');
   };
+
+  // removes the selected object from canvas
+  const deleteObject = (objectId) => {
+    setObjects((prev) => prev.filter(obj => obj.id !== objectId));
+    setSelectedObjectId(null);
+    socket.emit('deleteObject', objectId);
+  }
 
   useEffect(() => {
     // removes preload class to reenable transitions after initial loading    
@@ -51,6 +59,10 @@ export default function App() {
 
     socket.on('addObject', (object) => {
       setObjects((prev) => [...prev, object]);
+    });
+
+    socket.on('deleteObject', (id) => {
+      setObjects((prev) => prev.filter(obj => obj.id !== id));
     });
 
     socket.on('clear', () => {
@@ -89,6 +101,12 @@ export default function App() {
           setColor={setColor}
           brushSize={brushSize}
           setBrushSize={setBrushSize}
+        />
+      )}
+      {tool === 'select' && (
+        <Selectbar
+          selectedObjectId={selectedObjectId}
+          deleteObject={deleteObject}
         />
       )}
       {tool === 'text' && (
