@@ -2,8 +2,8 @@ import './editbar.css';
 
 export default function Drawbar({ color, setColor, brushSize, setBrushSize }) {
     return (
-        <div className="drawbar">
-            <div className="draw-group">
+        <div className="editbar">
+            <div className="edit-group">
                 <label>Color:</label>
                 <input
                     type="color"
@@ -11,7 +11,7 @@ export default function Drawbar({ color, setColor, brushSize, setBrushSize }) {
                     onChange={(e) => setColor(e.target.value)}
                 />
             </div>
-            <div className="draw-group">
+            <div className="edit-group">
                 <label>Brush Size:</label>
                 <input
                     type="range"

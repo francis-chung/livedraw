@@ -2,7 +2,7 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
 import './app.css';
 
-const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, setObjects, selectedObjectId, setSelectedObjectId, setEditingText }, ref) {
+const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectId, setSelectedObjectId, setEditingText }, ref) {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
@@ -40,8 +40,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
   };
 
   const getTextBounds = (ctx, textObject) => {
-    const fontSize = textObject.fontSize || 16;
-    ctx.font = `${fontSize}px Arial`;
+    ctx.font = `${textObject.fontSize}px Arial`;
     const lines = (textObject.value || '').split('\n');
     const lineHeight = fontSize * 1.2;
     const width = Math.max(...lines.map((line) => ctx.measureText(line).width), 0);
@@ -87,9 +86,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
   };
 
   const drawText = (ctx, textObject) => {
-    const fontSize = textObject.fontSize || 16;
-    ctx.font = `${fontSize}px Arial`;
-    ctx.fillStyle = textObject.color || 'black';
+    ctx.font = `${textObject.fontSize}px Arial`;
+    ctx.fillStyle = textObject.textColor;
     const lines = (textObject.value || '').split('\n');
     lines.forEach((line, index) => {
       ctx.fillText(line, textObject.x, textObject.y + index * fontSize * 1.2);
@@ -177,8 +175,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
           x,
           y,
           value: '',
-          color: 'black',
-          fontSize: 16,
+          textColor: textColor,
+          fontSize: fontSize,
         });
       }, 0);
       return;
@@ -236,8 +234,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, objects, set
   return (
     <canvas
       ref={canvasRef}
-      width={800}
-      height={600}
+      width={displayWidth}
+      height={displayHeight}
       onMouseDown={startDraw}
       onMouseMove={draw}
       onMouseUp={stopDraw}

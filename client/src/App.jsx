@@ -4,12 +4,15 @@ import socket from './socket.js';
 import './app.css';
 import HamburgerMenu from './HamburgerMenu.jsx';
 import Drawbar from './Drawbar.jsx';
+import Textbar from './Textbar.jsx';
 import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
 
 export default function App() {
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
+  const [fontSize, setFontSize] = useState(16);
+  const [textColor, setTextColor] = useState('#000000');
   const [tool, setTool] = useState('draw');
   const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
@@ -60,6 +63,12 @@ export default function App() {
     };
   }, [setObjects, setSelectedObjectId]);
 
+  useEffect(() => {
+    if (editingText) {
+      setEditingText(prev => ({ ...prev, fontSize, textColor }));
+    }
+  }, [fontSize, textColor]);
+
 
   return (
     <div className="app">
@@ -75,6 +84,14 @@ export default function App() {
           setBrushSize={setBrushSize}
         />
       )}
+      {tool === 'text' && (
+        <Textbar
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+          textColor={textColor}
+          setTextColor={setTextColor}
+        />
+      )}
       <div className="canvas-tools">
         <Toolbar
           tool={tool}
@@ -87,6 +104,8 @@ export default function App() {
             tool={tool}
             color={color}
             brushSize={brushSize}
+            fontSize={fontSize}
+            textColor={textColor}
             objects={objects}
             setObjects={setObjects}
             selectedObjectId={selectedObjectId}

@@ -3,8 +3,8 @@ import socket from './socket.js';
 import './editbar.css';
 
 export default function Textbox({ objects, setObjects, editingText, setEditingText }) {
-    const paddingX = 16;
-    const paddingY = 1;
+    const paddingX = 21;
+    const paddingY = 20;
     const ref = useRef(null);
 
     return (
@@ -14,8 +14,9 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
             style={{
                 position: "absolute",
                 left: editingText.x + paddingX,
-                top: editingText.y + paddingY,
-                color: "black"
+                top: editingText.y - 0.9 * editingText.fontSize + paddingY,
+                font: `${editingText.fontSize}px Arial`,
+                color: editingText.textColor
             }}
             autoFocus
             value={editingText.value || ""}
