@@ -39,6 +39,11 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('addObject', object);
     });
 
+    socket.on('deleteObject', (id) => {
+        objects = objects.filter((obj) => obj.id !== id);
+        socket.broadcast.emit('deleteObject', id);
+    });
+
     socket.on('clear', () => {
         objects = [];
         socket.broadcast.emit('clear');

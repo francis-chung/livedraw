@@ -142,6 +142,12 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   }, []);
 
   useEffect(() => {
+    if (tool !== "select") {
+      setSelectedObjectId(null);
+    }
+  }, [tool]);
+
+  useEffect(() => {
     redraw();
   }, [objects, selectedObjectId]);
 
@@ -202,23 +208,12 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   const draw = ({ nativeEvent }) => {
     if (tool !== 'draw' || !isDrawing.current) return;
     const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
 
     setObjects((prev) => prev.map((obj) =>
       obj.id === currentStrokeId.current && obj.type === 'stroke'
         ? { ...obj, points: [...obj.points, { x, y }] }
         : obj
     ));
-
-    const currentStroke = objects.find((object) => object.id === currentStrokeId.current);
-    if (currentStroke) {
-      const points = currentStroke.points;
-      const last = points[points.length - 2];
-      const current = points[points.length - 1];
-      drawSegment(ctx, last, current, stroke);
-    }
 
     socket.emit('appendStroke', {
       id: currentStrokeId.current,
