@@ -1,11 +1,25 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import socket from './socket.js';
 import './editbar.css';
 
-export default function Textbox({ objects, setObjects, editingText, setEditingText }) {
+export default function Textbox({ objects, setObjects, editingText, setEditingText, interactingWithTextbar }) {
     const paddingX = 21;
     const paddingY = 20;
     const ref = useRef(null);
+
+    const handleBlur = () => {
+        if (!interactingWithTextbar) {
+            setObjects([...objects, editingText]);
+            socket.emit('addObject', editingText);
+            setEditingText(null);
+        }
+    }
+
+    useEffect(() => {
+        if (!interactingWithTextbar) {
+            document.querySelector('.textbox-container').focus();
+        }
+    }, [interactingWithTextbar]);
 
     return (
         <textarea
@@ -23,11 +37,7 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
             onChange={(e) => {
                 setEditingText({ ...editingText, value: e.target.value })
             }}
-            onBlur={() => {
-                setObjects([...objects, editingText]);
-                socket.emit('addObject', editingText);
-                setEditingText(null);
-            }}
+            onBlur={handleBlur}
         />
     )
 }

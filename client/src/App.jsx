@@ -18,6 +18,7 @@ export default function App() {
   const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
   const [selectedObjectId, setSelectedObjectId] = useState(null);
+  const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
   const canvasRef = useRef();
 
   const handleClear = () => {
@@ -107,6 +108,7 @@ export default function App() {
           setFontSize={setFontSize}
           textColor={textColor}
           setTextColor={setTextColor}
+          setInteractingWithTextbar={setInteractingWithTextbar}
         />
       )}
       <div className="canvas-tools">
@@ -135,6 +137,7 @@ export default function App() {
               setObjects={setObjects}
               editingText={editingText}
               setEditingText={setEditingText}
+              interactingWithTextbar={interactingWithTextbar}
             />
           )}
         </div>

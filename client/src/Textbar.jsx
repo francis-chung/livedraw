@@ -1,12 +1,17 @@
 import './editbar.css';
 
-export default function Textbar({ fontSize, setFontSize, textColor, setTextColor }) {
+export default function Textbar({ fontSize, setFontSize, textColor, setTextColor, setInteractingWithTextbar }) {
     return (
-        <div className="editbar">
+        <div
+            className="editbar"
+            onMouseEnter={() => setInteractingWithTextbar(true)}
+            onMouseLeave={() => setInteractingWithTextbar(false)}
+        >
             <div className="edit-group">
                 <label>Font Size:</label>
                 <input
                     type="range"
+                    className="allow-focus"
                     min="1"
                     max="60"
                     value={fontSize}
