@@ -8,6 +8,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
 
   // size of the canvas
   const displayWidth = 800;
@@ -223,7 +225,14 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       // searches objects in reverse order to find uppermost
       // object in stack
       const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
-      setSelectedObjectId(hitObject ? hitObject.id : null);
+
+      // selects a new object if applicable; otherwise, begin dragging
+      if (!hitObject || selectedObjectId !== hitObject.id) {
+        setSelectedObjectId(hitObject ? hitObject.id : null);
+      } else {
+        isDragging.current = true;
+        dragStart.current = { x, y };
+      }
     }
 
     else if (tool === 'text') {
@@ -244,25 +253,56 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   };
 
   const handleDrag = ({ nativeEvent }) => {
-    if (tool !== 'draw' || !isDrawing.current) return;
-
     const { x, y } = getCanvasCoords(nativeEvent);
 
-    setObjects((prev) => prev.map((obj) =>
-      obj.id === currentStrokeId.current && obj.type === 'stroke'
-        ? { ...obj, points: [...obj.points, { x, y }] }
-        : obj
-    ));
+    if (tool === 'draw') {
+      setObjects((prev) => prev.map((obj) =>
+        obj.id === currentStrokeId.current && obj.type === 'stroke'
+          ? { ...obj, points: [...obj.points, { x, y }] }
+          : obj
+      ));
 
-    socket.emit('appendStroke', {
-      id: currentStrokeId.current,
-      point: { x, y },
-    });
+      socket.emit('appendStroke', {
+        id: currentStrokeId.current,
+        point: { x, y },
+      });
+    }
+
+    else if (tool === 'select' && isDragging.current && selectedObjectId) {
+      const dx = x - dragStart.current.x;
+      const dy = y - dragStart.current.y;
+
+      // moves the each of the selected object's coordinates by {dx, dy}
+      setObjects((prev) => prev.map((obj) => {
+        if (obj.id !== selectedObjectId) return obj;
+        if (obj.type === 'stroke') {
+          return {
+            ...obj,
+            points: obj.points.map((p) => ({
+              x: p.x + dx,
+              y: p.y + dy
+            }))
+          };
+        }
+        if (obj.type === 'text') {
+          return {
+            ...obj,
+            x: obj.x + dx,
+            y: obj.y + dy
+          };
+        }
+        return obj;
+      }));
+
+      // updates reference point for dragging
+      dragStart.current = { x, y };
+    }
   };
 
   const handleLeave = () => {
     isDrawing.current = false;
     currentStrokeId.current = null;
+    isDragging.current = false;
   };
 
   return (
