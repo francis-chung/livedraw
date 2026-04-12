@@ -22,20 +22,6 @@
     font-weight: bold;
 }
 
-.clear-btn {
-    padding: 8px 16px;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.clear-btn:hover {
-    background-color: #c82333;
-}
-
 .textbox-container {
     position: absolute;
     z-index: 10;

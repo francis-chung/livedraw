@@ -1,6 +1,6 @@
 import './editbar.css';
 
-export default function Drawbar({ color, setColor, brushSize, setBrushSize, handleClear }) {
+export default function Drawbar({ color, setColor, brushSize, setBrushSize }) {
     return (
         <div className="drawbar">
             <div className="draw-group">
@@ -22,7 +22,6 @@ export default function Drawbar({ color, setColor, brushSize, setBrushSize, hand
                 />
                 <span>{brushSize}px</span>
             </div>
-            <button onClick={handleClear} className="clear-btn">Clear Canvas</button>
         </div>
     )
 }

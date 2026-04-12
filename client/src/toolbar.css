@@ -34,3 +34,12 @@
     background: #6aa1f9;
     box-shadow: 0 0 0 1.5px rgba(59, 130, 246, 0.3);
 }
+
+.toolbar button.clear {
+    background-color: #dc3545;
+    color: white;
+}
+
+.toolbar button.clear:hover {
+    background-color: #c82333;
+}

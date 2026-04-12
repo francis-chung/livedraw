@@ -73,11 +73,14 @@ export default function App() {
           setColor={setColor}
           brushSize={brushSize}
           setBrushSize={setBrushSize}
-          handleClear={handleClear}
         />
       )}
       <div className="canvas-tools">
-        <Toolbar tool={tool} setTool={setTool} />
+        <Toolbar
+          tool={tool}
+          setTool={setTool}
+          handleClear={handleClear}
+        />
         <div className="canvas-container">
           <Canvas
             ref={canvasRef}
