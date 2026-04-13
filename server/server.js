@@ -39,9 +39,9 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('addObject', object);
     });
 
-    socket.on('deleteObject', (id) => {
-        objects = objects.filter((obj) => obj.id !== id);
-        socket.broadcast.emit('deleteObject', id);
+    socket.on('deleteObjects', (ids) => {
+        objects = objects.filter((obj) => !ids.includes(obj.id));
+        socket.broadcast.emit('deleteObjects', ids);
     });
 
     socket.on('clear', () => {

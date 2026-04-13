@@ -9,8 +9,10 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
 
     const handleBlur = () => {
         if (!interactingWithTextbar) {
-            setObjects([...objects, editingText]);
-            socket.emit('addObject', editingText);
+            if (editingText.value.trim() != "") {
+                setObjects([...objects, editingText]);
+                socket.emit('addObject', editingText);
+            }
             setEditingText(null);
         }
     }

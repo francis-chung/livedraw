@@ -1,14 +1,14 @@
 import './editbar.css';
 
-export default function Selectbar({ selectedObjectId, deleteObject }) {
+export default function Selectbar({ selectedObjectIds, deleteObjects }) {
     return (
         <div className="editbar">
-            {!selectedObjectId && (
+            {selectedObjectIds.length === 0 && (
                 <h2>Select an object</h2>
             )}
-            {selectedObjectId && (
+            {selectedObjectIds.length > 0 && (
                 <div className="edit-group">
-                    <button className="delete" onClick={() => deleteObject(selectedObjectId)}>
+                    <button className="delete" onClick={() => deleteObjects(selectedObjectIds)}>
                         Delete
                     </button>
                 </div>
