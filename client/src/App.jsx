@@ -46,22 +46,33 @@ export default function App() {
       setObjects(serverObjects || []);
     });
 
-    socket.on('startStroke', (stroke) => {
-      setObjects((prev) => [...prev, stroke]);
-    });
-
-    // appends point data to the correct object in object array
-    socket.on('appendStroke', ({ id, point }) => {
-      setObjects((prev) => prev.map((obj) =>
-        obj.id === id && obj.type === 'stroke'
-          ? { ...obj, points: [...obj.points, point] }
-          : obj
-      ));
-    });
-
     socket.on('addObject', (object) => {
       setObjects((prev) => [...prev, object]);
     });
+
+    socket.on('moveObjects', (ids, dp) => {
+      const idSet = new Set(ids);
+      setObjects((prev) => prev.map((obj) => {
+        if (!idSet.has(obj.id)) return obj;
+        if (obj.type === 'stroke') {
+          return {
+            ...obj,
+            points: obj.points.map(p => ({
+              x: p.x + dp.x,
+              y: p.y + dp.y
+            }))
+          };
+        }
+        if (obj.type === 'text') {
+          return {
+            ...obj,
+            x: obj.x + dp.x,
+            y: obj.y + dp.y
+          };
+        }
+        return obj;
+      }));
+    })
 
     socket.on('deleteObjects', (ids) => {
       setObjects((prev) => prev.filter(obj => !ids.includes(obj.id)));
@@ -74,9 +85,9 @@ export default function App() {
 
     return () => {
       socket.off('loadState');
-      socket.off('startStroke');
-      socket.off('appendStroke');
       socket.off('addObject');
+      socket.off('moveObjects');
+      socket.off('deleteObjects');
       socket.off('clear');
     };
   }, [setObjects, setSelectedObjectIds]);

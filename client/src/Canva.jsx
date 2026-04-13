@@ -9,7 +9,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
   const isDragging = useRef(false);
-  const dragStart = useRef({ x: 0, y: 0 });
+  const totalDelta = useRef({ x: 0, y: 0 });
+  const dragStart = useRef({ x: 0, y: 0 }); // will remove later; for debug purposes
+  const dragPrev = useRef({ x: 0, y: 0 });
   const isSelecting = useRef(false);
   const selectionStart = useRef({ x: 0, y: 0 });
   const selectionBox = useRef(null);
@@ -249,7 +251,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
       setObjects((prev) => [...prev, stroke]);
       currentStrokeId.current = stroke.id;
-      socket.emit('startStroke', stroke);
     }
 
     else if (tool === 'select') {
@@ -261,6 +262,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       if (hitObject) {
         if (selectedObjectIds.includes(hitObject.id)) {
           isDragging.current = true;
+          dragPrev.current = { x, y };
           dragStart.current = { x, y };
         } else {
           setSelectedObjectIds([hitObject.id]);
@@ -302,18 +304,15 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
           ? { ...obj, points: [...obj.points, { x, y }] }
           : obj
       ));
-
-      socket.emit('appendStroke', {
-        id: currentStrokeId.current,
-        point: { x, y },
-      });
     }
 
     else if (tool === 'select') {
       if (isDragging.current) {
-        const dx = x - dragStart.current.x;
-        const dy = y - dragStart.current.y;
-        // using a set is not necessarily, but apparently provides better performance
+        const dx = x - dragPrev.current.x;
+        const dy = y - dragPrev.current.y;
+        totalDelta.current.x += dx;
+        totalDelta.current.y += dy;
+        // using a set is not necessarily, but apparently provides better performance        
         const selectedSet = new Set(selectedObjectIds);
 
         // moves the each of the selected object's coordinates by {dx, dy}        
@@ -338,8 +337,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
           return obj;
         }));
 
-        // updates reference point for dragging
-        dragStart.current = { x, y };
+        // updates reference point for dragging        
+        dragPrev.current = { x, y };
       } else if (isSelecting.current) {
         const start = selectionStart.current;
 
@@ -361,7 +360,18 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     }
   };
 
-  const handleLeave = () => {
+  const handleLeave = ({ nativeEvent }) => {
+    const { x, y } = getCanvasCoords(nativeEvent);
+
+    if (isDrawing.current && currentStrokeId.current) {
+      const stroke = objects.find(obj => obj.id === currentStrokeId.current);
+      socket.emit('addObject', stroke);
+    }
+
+    if (isDragging.current) {
+      socket.emit('moveObjects', selectedObjectIds, totalDelta.current);
+    }
+
     // selects all objects bounded within selectionBox, if applicable
     if (isSelecting.current && selectionBox.current) {
       const canvas = canvasRef.current;
@@ -390,6 +400,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     isDrawing.current = false;
     currentStrokeId.current = null;
     isDragging.current = false;
+    totalDelta.current = { x: 0, y: 0 };
   };
 
   return (

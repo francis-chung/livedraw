@@ -35,23 +35,36 @@ io.on('connection', (socket) => {
         objects
     });
 
-    // waits for this client to send data, then broadcasts to everyone else
-    socket.on('startStroke', (stroke) => {
-        objects.push(stroke);
-        socket.broadcast.emit('startStroke', stroke);
-    });
-
-    socket.on('appendStroke', ({ id, point }) => {
-        const stroke = objects.find((obj) => obj.id === id && obj.type === 'stroke');
-        if (stroke) {
-            stroke.points.push(point);
-            socket.broadcast.emit('appendStroke', { id, point });
-        }
-    });
-
+    // waits for this client to send data, then broadcasts to everyone else    
     socket.on('addObject', (object) => {
         objects.push(object);
         socket.broadcast.emit('addObject', object);
+    });
+
+    // changes the objects in storage, then emits
+    socket.on('moveObjects', (ids, dp) => {
+        const idSet = new Set(ids);
+        objects = objects.map((obj) => {
+            if (!idSet.has(obj.id)) return obj;
+            if (obj.type === 'stroke') {
+                return {
+                    ...obj,
+                    points: obj.points.map(p => ({
+                        x: p.x + dp.x,
+                        y: p.y + dp.y
+                    }))
+                };
+            }
+            if (obj.type === 'text') {
+                return {
+                    ...obj,
+                    x: obj.x + dp.x,
+                    y: obj.y + dp.y
+                };
+            }
+            return obj;
+        });
+        socket.broadcast.emit('moveObjects', ids, dp);
     });
 
     socket.on('deleteObjects', (ids) => {
