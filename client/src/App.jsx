@@ -17,7 +17,7 @@ export default function App() {
   const [tool, setTool] = useState('draw');
   const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
-  const [selectedObjectId, setSelectedObjectId] = useState(null);
+  const [selectedObjectIds, setSelectedObjectIds] = useState([]);
   const [hoveredObjectId, setHoveredObjectId] = useState(null);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
   const canvasRef = useRef();
@@ -26,15 +26,15 @@ export default function App() {
   const handleClear = () => {
     canvasRef.current.clear();
     setObjects([]);
-    setSelectedObjectId(null);
+    setSelectedObjectIds([]);
     socket.emit('clear');
   };
 
-  // removes the selected object from canvas
-  const deleteObject = (objectId) => {
-    setObjects((prev) => prev.filter(obj => obj.id !== objectId));
-    setSelectedObjectId(null);
-    socket.emit('deleteObject', objectId);
+  // removes the selected objects from canvas  
+  const deleteObjects = (objectIds) => {
+    setObjects((prev) => prev.filter(obj => !objectIds.includes(obj.id)));
+    setSelectedObjectIds([]);
+    socket.emit('deleteObjects', objectIds);
   }
 
   useEffect(() => {
@@ -63,13 +63,13 @@ export default function App() {
       setObjects((prev) => [...prev, object]);
     });
 
-    socket.on('deleteObject', (id) => {
-      setObjects((prev) => prev.filter(obj => obj.id !== id));
+    socket.on('deleteObjects', (ids) => {
+      setObjects((prev) => prev.filter(obj => !ids.includes(obj.id)));
     });
 
     socket.on('clear', () => {
       setObjects([]);
-      setSelectedObjectId(null);
+      setSelectedObjectIds([]);
     });
 
     return () => {
@@ -79,7 +79,7 @@ export default function App() {
       socket.off('addObject');
       socket.off('clear');
     };
-  }, [setObjects, setSelectedObjectId]);
+  }, [setObjects, setSelectedObjectIds]);
 
   // changes editingText properties if options were changed midway
   // NOTE: would not prefer putting this useEffect here, but this file 
@@ -107,8 +107,8 @@ export default function App() {
       )}
       {tool === 'select' && (
         <Selectbar
-          selectedObjectId={selectedObjectId}
-          deleteObject={deleteObject}
+          selectedObjectIds={selectedObjectIds}
+          deleteObjects={deleteObjects}
         />
       )}
       {tool === 'text' && (
@@ -136,8 +136,8 @@ export default function App() {
             textColor={textColor}
             objects={objects}
             setObjects={setObjects}
-            selectedObjectId={selectedObjectId}
-            setSelectedObjectId={setSelectedObjectId}
+            selectedObjectIds={selectedObjectIds}
+            setSelectedObjectIds={setSelectedObjectIds}
             hoveredObjectId={hoveredObjectId}
             setHoveredObjectId={setHoveredObjectId}
             setEditingText={setEditingText}

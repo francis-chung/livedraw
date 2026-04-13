@@ -2,14 +2,17 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
 import './app.css';
 
-const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectId, setSelectedObjectId, hoveredObjectId, setHoveredObjectId, setEditingText }, ref) {
+const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, setEditingText }, ref) {
   // useRef: similar to useState, but does not cause a screen re-render
-  // only for when data not shown on-screen is modified    
+  // only for when data not shown on-screen is modified   
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
+  const isSelecting = useRef(false);
+  const selectionStart = useRef({ x: 0, y: 0 });
+  const selectionBox = useRef(null);
 
   // size of the canvas
   const displayWidth = 800;
@@ -83,6 +86,9 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
   // creates bounding boxes for any type of object
   const getObjectBounds = (ctx, object) => {
+    if (object.type === 'box') { // specifically for selectionBox for now
+      return object;
+    }
     if (object.type === 'stroke') {
       return getStrokeBounds(object.points, object.width);
     }
@@ -126,13 +132,17 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     });
   };
 
-  const drawSelection = (ctx, object, clicked) => {
+  // boolean parameters after object used to modify box appearance based on functionality
+  const drawSelection = (ctx, object, clicked, selectBox) => {
     const bounds = getObjectBounds(ctx, object);
 
     // stores the current state of ctx so that later modifications
     // can be easily removed
     ctx.save();
     ctx.strokeStyle = '#0078d4';
+    if (selectBox) {
+      ctx.strokeStyle = '#8ebde0';
+    }
     ctx.lineWidth = 1;
     if (clicked) {
       // 6px drawn, 4px gap only if selected
@@ -159,14 +169,30 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       }
     });
 
-    const selectedObject = objects.find((object) => object.id === selectedObjectId);
-    if (selectedObject) {
-      drawSelection(ctx, selectedObject, true);
+    if (selectedObjectIds.length > 0) {
+      objects.forEach(obj => {
+        if (selectedObjectIds.includes(obj.id)) {
+          drawSelection(ctx, obj, true, false);
+        }
+      })
     }
 
     const hoveredObject = objects.find((object) => object.id === hoveredObjectId);
     if (hoveredObject) {
-      drawSelection(ctx, hoveredObject, false);
+      drawSelection(ctx, hoveredObject, false, false);
+    }
+
+    if (isSelecting && selectionBox.current) {
+      // creates a new object matching helper function parameters 
+      // to facilitate drawing selection box
+      const boxObject = {
+        type: 'box',
+        left: selectionBox.current.x,
+        top: selectionBox.current.y,
+        width: selectionBox.current.width,
+        height: selectionBox.current.height
+      };
+      drawSelection(ctx, boxObject, false, true);
     }
   };
 
@@ -194,13 +220,13 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   // redraws every time objects are added or selected
   useEffect(() => {
     if (tool !== "select") {
-      setSelectedObjectId(null);
+      setSelectedObjectIds([]);
     }
   }, [tool]);
 
   useEffect(() => {
     redraw();
-  }, [objects, selectedObjectId, hoveredObjectId]);
+  }, [objects, selectedObjectIds, hoveredObjectId]);
 
   const handleClick = ({ nativeEvent }) => {
     const { offsetX, offsetY } = nativeEvent;
@@ -212,7 +238,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     const ctx = canvas.getContext('2d');
 
     if (tool === 'draw') {
-      setSelectedObjectId(null);
       isDrawing.current = true;
       const stroke = {
         id: crypto.randomUUID(),
@@ -232,12 +257,19 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       // object in stack
       const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
 
-      // selects a new object if applicable; otherwise, begin dragging
-      if (!hitObject || selectedObjectId !== hitObject.id) {
-        setSelectedObjectId(hitObject ? hitObject.id : null);
-      } else {
-        isDragging.current = true;
-        dragStart.current = { x, y };
+      // drags objects if already selected; otherwise selects them
+      if (hitObject) {
+        if (selectedObjectIds.includes(hitObject.id)) {
+          isDragging.current = true;
+          dragStart.current = { x, y };
+        } else {
+          setSelectedObjectIds([hitObject.id]);
+        }
+      } else { // enables multi-select if no object is clicked on
+        setSelectedObjectIds([]);
+        isSelecting.current = true;
+        selectionStart.current = { x, y };
+        selectionBox.current = { x, y, width: 0, height: 0 };
       }
     }
 
@@ -278,13 +310,15 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     }
 
     else if (tool === 'select') {
-      if (isDragging.current && selectedObjectId) {
+      if (isDragging.current) {
         const dx = x - dragStart.current.x;
         const dy = y - dragStart.current.y;
+        // using a set is not necessarily, but apparently provides better performance
+        const selectedSet = new Set(selectedObjectIds);
 
         // moves the each of the selected object's coordinates by {dx, dy}        
         setObjects((prev) => prev.map((obj) => {
-          if (obj.id !== selectedObjectId) return obj;
+          if (!selectedSet.has(obj.id)) return obj;
           if (obj.type === 'stroke') {
             return {
               ...obj,
@@ -306,14 +340,53 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
         // updates reference point for dragging
         dragStart.current = { x, y };
-      } else { // creates hover effect if object is not selected object
+      } else if (isSelecting.current) {
+        const start = selectionStart.current;
+
+        // recreates selectionBox based on current mouse coordinates
+        selectionBox.current = {
+          x: Math.min(start.x, x),
+          y: Math.min(start.y, y),
+          width: Math.abs(x - start.x),
+          height: Math.abs(y - start.y)
+        };
+
+        // since selectionBox is a ref, useEffect cannot use it properly as a dependency
+        // so redraw is manually called instead
+        redraw();
+      } else { // creates hover effect if object is not one of selected objects
         const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
-        setHoveredObjectId((hitObject && hitObject.id !== selectedObjectId) ? hitObject.id : null);
+        setHoveredObjectId((hitObject && !selectedObjectIds.includes(hitObject.id)) ? hitObject.id : null);
       }
     }
   };
 
   const handleLeave = () => {
+    // selects all objects bounded within selectionBox, if applicable
+    if (isSelecting.current && selectionBox.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const box = selectionBox.current;
+
+      // first finds all objects within selectionBox, then returns ids
+      const selectedIds = objects
+        .filter((obj => {
+          const bounds = getObjectBounds(ctx, obj);
+
+          return !(
+            bounds.left > box.x + box.width ||
+            bounds.left + bounds.width < box.x ||
+            bounds.top > box.y + box.height ||
+            bounds.top + bounds.height < box.y
+          );
+        }))
+        .map(obj => obj.id);
+
+      setSelectedObjectIds(selectedIds);
+    }
+
+    isSelecting.current = false;
+    selectionBox.current = null;
     isDrawing.current = false;
     currentStrokeId.current = null;
     isDragging.current = false;

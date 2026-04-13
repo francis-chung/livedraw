@@ -12,8 +12,11 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
     // only saves textbox and deactivates textarea when not interacting with textbar
     const handleBlur = () => {
         if (!interactingWithTextbar) {
-            setObjects([...objects, editingText]);
-            socket.emit('addObject', editingText);
+            // ensures a non-empty value is in the textarea in order to save
+            if (editingText.value.trim() != "") {
+                setObjects([...objects, editingText]);
+                socket.emit('addObject', editingText);
+            }
             setEditingText(null);
         }
     }
