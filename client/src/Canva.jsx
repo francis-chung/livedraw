@@ -8,7 +8,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   const currentStrokeId = useRef(null);
   const isDragging = useRef(false);
   const totalDelta = useRef({ x: 0, y: 0 });
-  const dragStart = useRef({ x: 0, y: 0 }); // will remove later; for debug purposes
   const dragPrev = useRef({ x: 0, y: 0 });
   const isSelecting = useRef(false);
   const selectionStart = useRef({ x: 0, y: 0 });
@@ -214,7 +213,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
         if (selectedObjectIds.includes(hitObject.id)) {
           isDragging.current = true;
           dragPrev.current = { x, y };
-          dragStart.current = { x, y };
         } else {
           setSelectedObjectIds([hitObject.id]);
         }
@@ -302,9 +300,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     }
   };
 
-  const handleLeave = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-
+  const handleLeave = () => {
     if (isDrawing.current && currentStrokeId.current) {
       const stroke = objects.find(obj => obj.id === currentStrokeId.current);
       socket.emit('addObject', stroke);

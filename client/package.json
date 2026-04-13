@@ -13,6 +13,7 @@
     "@fontsource/inter": "^5.2.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-textarea-autosize": "^8.5.9",
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
