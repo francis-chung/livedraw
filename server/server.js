@@ -21,19 +21,6 @@ io.on('connection', (socket) => {
         objects
     });
 
-    socket.on('startStroke', (stroke) => {
-        objects.push(stroke);
-        socket.broadcast.emit('startStroke', stroke);
-    });
-
-    socket.on('appendStroke', ({ id, point }) => {
-        const stroke = objects.find((obj) => obj.id === id && obj.type === 'stroke');
-        if (stroke) {
-            stroke.points.push(point);
-            socket.broadcast.emit('appendStroke', { id, point });
-        }
-    });
-
     socket.on('addObject', (object) => {
         objects.push(object);
         socket.broadcast.emit('addObject', object);

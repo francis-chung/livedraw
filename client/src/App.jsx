@@ -42,18 +42,6 @@ export default function App() {
       setObjects(serverObjects || []);
     });
 
-    socket.on('startStroke', (stroke) => {
-      setObjects((prev) => [...prev, stroke]);
-    });
-
-    socket.on('appendStroke', ({ id, point }) => {
-      setObjects((prev) => prev.map((obj) =>
-        obj.id === id && obj.type === 'stroke'
-          ? { ...obj, points: [...obj.points, point] }
-          : obj
-      ));
-    });
-
     socket.on('addObject', (object) => {
       setObjects((prev) => [...prev, object]);
     });
@@ -69,8 +57,6 @@ export default function App() {
 
     return () => {
       socket.off('loadState');
-      socket.off('startStroke');
-      socket.off('appendStroke');
       socket.off('addObject');
       socket.off('clear');
     };

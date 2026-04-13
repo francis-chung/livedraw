@@ -204,7 +204,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
 
       setObjects((prev) => [...prev, stroke]);
       currentStrokeId.current = stroke.id;
-      socket.emit('startStroke', stroke);
     }
 
     else if (tool === 'select') {
@@ -251,11 +250,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
           ? { ...obj, points: [...obj.points, { x, y }] }
           : obj
       ));
-
-      socket.emit('appendStroke', {
-        id: currentStrokeId.current,
-        point: { x, y },
-      });
     }
 
     else if (tool === 'select') {
@@ -304,6 +298,11 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   };
 
   const handleLeave = () => {
+    if (isDrawing.current && currentStrokeId.current) {
+      const stroke = objects.find(obj => obj.id === currentStrokeId.current);
+      socket.emit('addObject', stroke);
+    }
+
     if (isSelecting.current && selectionBox.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
