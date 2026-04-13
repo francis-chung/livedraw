@@ -310,6 +310,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       if (isDragging.current) {
         const dx = x - dragPrev.current.x;
         const dy = y - dragPrev.current.y;
+        // accumulates delta change to compute final delta to send to server
         totalDelta.current.x += dx;
         totalDelta.current.y += dy;
         // using a set is not necessarily, but apparently provides better performance        
