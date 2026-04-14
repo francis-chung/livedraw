@@ -2,7 +2,7 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import socket from './socket.js';
 import './app.css';
 
-const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, setEditingText }, ref) {
+const Canvas = forwardRef(function Canvas({ tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }, ref) {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
@@ -129,7 +129,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     objects.forEach((object) => {
       if (object.type === 'stroke') {
         drawStroke(ctx, object);
-      } else if (object.type === 'text') {
+      } else if (object.type === 'text' && (!editingText || object.id !== editingText.id)) {
         drawText(ctx, object);
       }
     });
@@ -179,6 +179,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   useEffect(() => {
     if (tool !== "select") {
       setSelectedObjectIds([]);
+      setHoveredObjectId(null);
     }
   }, [tool]);
 
@@ -187,9 +188,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   }, [objects, selectedObjectIds, hoveredObjectId]);
 
   const handleClick = ({ nativeEvent }) => {
-    const { offsetX, offsetY } = nativeEvent;
-    if (offsetX < 0 || offsetY < 0) return;
-
     const { x, y } = getCanvasCoords(nativeEvent);
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -241,7 +239,23 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     }
   };
 
-  const handleDrag = ({ nativeEvent }) => {
+  const handleDoubleClick = ({ nativeEvent }) => {
+    const { x, y } = getCanvasCoords(nativeEvent);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    if (tool === 'select') {
+      const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
+      if (hitObject && hitObject.type === 'text') {
+        setIsChangingText(true);
+        setEditingText(hitObject);
+        setTool('text');
+      }
+    }
+  }
+
+  const handleMove = ({ nativeEvent }) => {
     const { x, y } = getCanvasCoords(nativeEvent);
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -347,7 +361,8 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
       width={displayWidth}
       height={displayHeight}
       onMouseDown={handleClick}
-      onMouseMove={handleDrag}
+      onDoubleClick={handleDoubleClick}
+      onMouseMove={handleMove}
       onMouseUp={handleLeave}
       onMouseLeave={handleLeave}
     />

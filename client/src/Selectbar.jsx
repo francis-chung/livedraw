@@ -4,7 +4,7 @@ export default function Selectbar({ selectedObjectIds, deleteObjects }) {
     return (
         <div className="editbar">
             {selectedObjectIds.length === 0 && (
-                <h2>Select an object</h2>
+                <h2>Select an object to move, edit or delete</h2>
             )}
             {selectedObjectIds.length > 0 && (
                 <div className="edit-group">

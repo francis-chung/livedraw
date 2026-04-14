@@ -3,18 +3,28 @@ import TextareaAutosize from 'react-textarea-autosize';
 import socket from './socket.js';
 import './editbar.css';
 
-export default function Textbox({ objects, setObjects, editingText, setEditingText, interactingWithTextbar }) {
+export default function Textbox({ objects, setObjects, editingText, setEditingText, isChangingText, setIsChangingText, interactingWithTextbar }) {
     const paddingX = 21;
     const paddingY = 20;
     const ref = useRef(null);
 
     const handleBlur = () => {
         if (!interactingWithTextbar) {
-            if (editingText.value.trim() != "") {
-                setObjects([...objects, editingText]);
-                socket.emit('addObject', editingText);
+            const trimmed = editingText.value.trim();
+            if (trimmed) {
+                const editedText = { ...editingText, value: trimmed };
+                if (!isChangingText) {
+                    setObjects([...objects, editedText]);
+                    socket.emit('addObject', editedText);
+                } else {
+                    setObjects(prev => prev.map(obj =>
+                        obj.id === editedText.id ? editedText : obj
+                    ));
+                    socket.emit('updateObject', editedText);
+                }
             }
             setEditingText(null);
+            setIsChangingText(false);
         }
     }
 
