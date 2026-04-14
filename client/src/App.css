@@ -98,13 +98,21 @@ body.dark {
 }
 
 .canvas-tools {
-  display: flex;
+  /* children become grid items */
+  display: grid;
+  /* defines 3 columns
+  auto: sizes to default content size
+  1fr: a fractional unit representing the remaining amount of space */
+  grid-template-columns: 1fr auto 1fr;
+  /* aligns grid items to the top of their grid cell */
+  align-items: start;
   gap: 20px;
 }
 
 .canvas-container {
-  /* allows children with absolute position to be relative to this */
-  position: relative;
+  grid-column: 2;
+  /* centres element within column 2 */
+  justify-self: center;
   background-color: var(--canvas-background);
   padding: 20px;
   border-radius: 8px;
