@@ -56,4 +56,6 @@
     background: transparent;
     outline: none;
     resize: none;
+    /* hides the textarea scrollbar */
+    overflow: hidden;
 }

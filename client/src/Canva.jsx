@@ -10,7 +10,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
   const currentStrokeId = useRef(null);
   const isDragging = useRef(false);
   const totalDelta = useRef({ x: 0, y: 0 });
-  const dragStart = useRef({ x: 0, y: 0 }); // will remove later; for debug purposes
   const dragPrev = useRef({ x: 0, y: 0 });
   const isSelecting = useRef(false);
   const selectionStart = useRef({ x: 0, y: 0 });
@@ -105,24 +104,28 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     return x >= bounds.left && x <= bounds.left + bounds.width && y >= bounds.top && y <= bounds.top + bounds.height;
   };
 
-  // helper function to make stroke re-rendering and incremental
-  // point adding more compact
-  const drawSegment = (ctx, p1, p2, stroke) => {
+  const drawStroke = (ctx, stroke) => {
+    if (!stroke.points || stroke.points.length === 0) return;
+    const points = stroke.points;
     ctx.strokeStyle = stroke.color;
     ctx.lineWidth = stroke.width;
 
     ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.stroke();
-  };
+    ctx.moveTo(points[0].x, points[0].y);
 
-  const drawStroke = (ctx, stroke) => {
-    if (!stroke.points || stroke.points.length === 0) return;
-    const points = stroke.points;
-    for (let i = 1; i < points.length; i++) {
-      drawSegment(ctx, points[i - 1], points[i], stroke);
+    // creates a quadratic (Bezier) curve based on midpoints of defined points
+    // depends on start point (previous point / midpoint), control point to 
+    // pull the curve toward it (p1), and end point (new midpoint)
+    for (let i = 1; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const midX = (p1.x + p2.x) / 2;
+      const midY = (p1.y + p2.y) / 2;
+      ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
     }
+    const last = points[points.length - 1];
+    ctx.lineTo(last.x, last.y);
+    ctx.stroke();
   };
 
   const drawText = (ctx, textObject) => {
@@ -263,7 +266,6 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
         if (selectedObjectIds.includes(hitObject.id)) {
           isDragging.current = true;
           dragPrev.current = { x, y };
-          dragStart.current = { x, y };
         } else {
           setSelectedObjectIds([hitObject.id]);
         }
@@ -361,9 +363,7 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     }
   };
 
-  const handleLeave = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-
+  const handleLeave = () => {
     if (isDrawing.current && currentStrokeId.current) {
       const stroke = objects.find(obj => obj.id === currentStrokeId.current);
       socket.emit('addObject', stroke);

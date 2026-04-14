@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react';
+import TextareaAutosize from 'react-textarea-autosize';
 import socket from './socket.js';
 import './editbar.css';
 
@@ -30,8 +31,9 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
 
 
     // fontSize factor in top property of style also required for padding
+    // TextareaAutosize has built-in functions to autosize the textarea
     return (
-        <textarea
+        <TextareaAutosize
             ref={ref}
             className="textbox-container"
             style={{
@@ -39,6 +41,7 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
                 left: editingText.x + paddingX,
                 top: editingText.y - 0.9 * editingText.fontSize + paddingY,
                 font: `${editingText.fontSize}px Arial`,
+                lineHeight: 1.2,
                 color: editingText.textColor
             }}
             autoFocus
