@@ -76,22 +76,24 @@ const Canvas = forwardRef(function Canvas({ tool, color, brushSize, fontSize, te
     return x >= bounds.left && x <= bounds.left + bounds.width && y >= bounds.top && y <= bounds.top + bounds.height;
   };
 
-  const drawSegment = (ctx, p1, p2, stroke) => {
+  const drawStroke = (ctx, stroke) => {
+    if (!stroke.points || stroke.points.length === 0) return;
+    const points = stroke.points;
     ctx.strokeStyle = stroke.color;
     ctx.lineWidth = stroke.width;
 
     ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.stroke();
-  };
-
-  const drawStroke = (ctx, stroke) => {
-    if (!stroke.points || stroke.points.length === 0) return;
-    const points = stroke.points;
-    for (let i = 1; i < points.length; i++) {
-      drawSegment(ctx, points[i - 1], points[i], stroke);
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const midX = (p1.x + p2.x) / 2;
+      const midY = (p1.y + p2.y) / 2;
+      ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
     }
+    const last = points[points.length - 1];
+    ctx.lineTo(last.x, last.y);
+    ctx.stroke();
   };
 
   const drawText = (ctx, textObject) => {
