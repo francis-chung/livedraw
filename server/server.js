@@ -41,7 +41,13 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('addObject', object);
     });
 
-    // changes the objects in storage, then emits
+    socket.on('updateObject', (object) => {
+        objects = objects.map(obj =>
+            obj.id === object.id ? object : obj
+        );
+        socket.broadcast.emit('updateObject', object);
+    })
+
     socket.on('moveObjects', (ids, dp) => {
         const idSet = new Set(ids);
         objects = objects.map((obj) => {

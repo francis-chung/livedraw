@@ -19,6 +19,7 @@ export default function App() {
   const [editingText, setEditingText] = useState(null);
   const [selectedObjectIds, setSelectedObjectIds] = useState([]);
   const [hoveredObjectId, setHoveredObjectId] = useState(null);
+  const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
   const canvasRef = useRef();
 
@@ -48,6 +49,12 @@ export default function App() {
 
     socket.on('addObject', (object) => {
       setObjects((prev) => [...prev, object]);
+    });
+
+    socket.on('updateObject', (object) => {
+      setObjects((prev) => prev.map(obj =>
+        obj.id === object.id ? object : obj
+      ));
     });
 
     socket.on('moveObjects', (ids, dp) => {
@@ -141,6 +148,7 @@ export default function App() {
           <Canvas
             ref={canvasRef}
             tool={tool}
+            setTool={setTool}
             color={color}
             brushSize={brushSize}
             fontSize={fontSize}
@@ -151,7 +159,9 @@ export default function App() {
             setSelectedObjectIds={setSelectedObjectIds}
             hoveredObjectId={hoveredObjectId}
             setHoveredObjectId={setHoveredObjectId}
+            editingText={editingText}
             setEditingText={setEditingText}
+            setIsChangingText={setIsChangingText}
           />
           {tool === 'text' && editingText && (
             <Textbox
@@ -159,6 +169,8 @@ export default function App() {
               setObjects={setObjects}
               editingText={editingText}
               setEditingText={setEditingText}
+              isChangingText={isChangingText}
+              setIsChangingText={setIsChangingText}
               interactingWithTextbar={interactingWithTextbar}
             />
           )}
