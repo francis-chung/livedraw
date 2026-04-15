@@ -3,6 +3,7 @@ import { Stage, Layer, Line, Text, Rect } from 'react-konva';
 import socket from './socket.js';
 import './app.css';
 import { TextPath } from 'konva/lib/shapes/TextPath';
+import { Path } from 'konva/lib/shapes/Path';
 
 export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }) {
   const isDrawing = useRef(false);
@@ -112,8 +113,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     socket.emit('moveObjects', [objectId], { x, y });
   };
 
-  const renderSelectionRect = (object) => {
-    if (!object) return null;
+  const getObjectBounds = (object) => {
     if (object.type === 'stroke') {
       const points = getFlatPoints(object.points);
       const xs = points.filter((_, index) => index % 2 === 0);
@@ -122,40 +122,29 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       const top = Math.min(...ys) - object.width / 2 - 4;
       const width = Math.max(...xs) - Math.min(...xs) + object.width + 8;
       const height = Math.max(...ys) - Math.min(...ys) + object.width + 8;
-      return <Rect x={left} y={top} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
+      return { left, top, width, height };
     }
 
     if (object.type === 'text') {
       const lines = (object.value || '').split('\n');
       const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
       const height = lines.length * object.fontSize * 1.2 + 8;
-      return <Rect x={object.x - 4} y={object.y - 4} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
+      return { left: object.x - 4, top: object.y - 4, width, height };
     }
 
     return null;
+  }
+
+  const renderSelectionRect = (object) => {
+    if (!object) return null;
+    const { left, top, width, height } = getObjectBounds(object);
+    return <Rect x={left} y={top} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
   };
 
   const renderHoverRect = (object) => {
     if (!object) return null;
-    if (object.type === 'stroke') {
-      const points = getFlatPoints(object.points);
-      const xs = points.filter((_, index) => index % 2 === 0);
-      const ys = points.filter((_, index) => index % 2 === 1);
-      const left = Math.min(...xs) - object.width / 2 - 4;
-      const top = Math.min(...ys) - object.width / 2 - 4;
-      const width = Math.max(...xs) - Math.min(...xs) + object.width + 8;
-      const height = Math.max(...ys) - Math.min(...ys) + object.width + 8;
-      return <Rect x={left} y={top} width={width} height={height} stroke="#8ebde0" dash={[4, 4]} listening={false} />;
-    }
-
-    if (object.type === 'text') {
-      const lines = (object.value || '').split('\n');
-      const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
-      const height = lines.length * object.fontSize * 1.2 + 8;
-      return <Rect x={object.x - 4} y={object.y - 4} width={width} height={height} stroke="#8ebde0" dash={[4, 4]} listening={false} />;
-    }
-
-    return null;
+    const { left, top, width, height } = getObjectBounds(object);
+    return <Rect x={left} y={top} width={width} height={height} stroke="#0078d4" listening={false} />;
   };
 
   useEffect(() => {
