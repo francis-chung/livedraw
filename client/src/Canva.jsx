@@ -39,7 +39,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           id: crypto.randomUUID(),
           type: 'text',
           x: x,
-          y: y - 0.5 * fontSize,
+          y: y,
           value: '',
           textColor,
           fontSize,
@@ -127,9 +127,9 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
     if (object.type === 'text') {
       const lines = (object.value || '').split('\n');
-      const width = Math.max(50, Math.max(...lines.map((line) => line.length * object.fontSize * 0.55)));
+      const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
       const height = lines.length * object.fontSize * 1.2 + 8;
-      return <Rect x={object.x - 4} y={object.y - object.fontSize - 4} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
+      return <Rect x={object.x - 4} y={object.y - 4} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
     }
 
     return null;
@@ -150,9 +150,9 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
     if (object.type === 'text') {
       const lines = (object.value || '').split('\n');
-      const width = Math.max(50, Math.max(...lines.map((line) => line.length * object.fontSize * 0.55)));
+      const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
       const height = lines.length * object.fontSize * 1.2 + 8;
-      return <Rect x={object.x - 4} y={object.y - object.fontSize - 4} width={width} height={height} stroke="#8ebde0" dash={[4, 4]} listening={false} />;
+      return <Rect x={object.x - 4} y={object.y - 4} width={width} height={height} stroke="#8ebde0" dash={[4, 4]} listening={false} />;
     }
 
     return null;

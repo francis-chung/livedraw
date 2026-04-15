@@ -11,7 +11,7 @@ export default function Textbox({ stageBox, objects, setObjects, editingText, se
         if (!interactingWithTextbar) {
             const trimmed = editingText.value.trim();
             if (trimmed) {
-                const editedText = { ...editingText, value: trimmed };
+                const editedText = { ...editingText, value: trimmed, y: editingText.y - editingText.fontSize * 0.5 };
                 if (!isChangingText) {
                     setObjects([...objects, editedText]);
                     socket.emit('addObject', editedText);
@@ -47,7 +47,7 @@ export default function Textbox({ stageBox, objects, setObjects, editingText, se
                 style={{
                     position: "absolute",
                     left: stageBox.left + editingText.x,
-                    top: stageBox.top + editingText.y,
+                    top: stageBox.top + editingText.y - editingText.fontSize * 0.5,
                     width: textboxWidth,
                     fontSize: editingText.fontSize,
                     fontFamily: "Arial",
