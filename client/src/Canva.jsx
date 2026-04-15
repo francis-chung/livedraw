@@ -8,21 +8,23 @@ import { Path } from 'konva/lib/shapes/Path';
 export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }) {
   const groupRef = useRef(null);
   const isDrawing = useRef(false);
+  const drawStart = useRef(false);
   const currentStrokeId = useRef(null);
   const isSelecting = useRef(false);
   const selectionStart = useRef(null);
   const selectionRect = useRef(null);
-  const dragStartPos = useRef(null);
   const [selectionBox, setSelectionBox] = useState(null);
 
   const stageWidth = 800;
   const stageHeight = 600;
 
-  const getFlatPoints = (points) => points.flatMap((point) => [point.x, point.y]);
+  const getFlatPoints = (obj) => {
+    return obj.points.flatMap(p => [p.x + obj.x, p.y + obj.y]);
+  };
 
   const getObjectBounds = (object) => {
     if (object.type === 'stroke') {
-      const points = getFlatPoints(object.points);
+      const points = getFlatPoints(object);
       const xs = points.filter((_, index) => index % 2 === 0);
       const ys = points.filter((_, index) => index % 2 === 1);
       const left = Math.min(...xs) - object.width / 2 - 4;
@@ -77,13 +79,15 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       const stroke = {
         id: crypto.randomUUID(),
         type: 'stroke',
+        x,
+        y,
         color,
         width: brushSize,
-        points: [pointerPos],
+        points: [{ x: 0, y: 0 }],
       };
       setObjects((prev) => [...prev, stroke]);
       currentStrokeId.current = stroke.id;
-      setSelectedObjectIds([]);
+      drawStart.current = { x, y };
     } else if (tool === 'select') {
       isSelecting.current = true;
       selectionStart.current = pointerPos;
@@ -110,9 +114,10 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     const { x, y } = pointerPos;
 
     if (tool === 'draw' && isDrawing.current) {
+      const { x: startX, y: startY } = drawStart.current;
       setObjects((prev) => prev.map((object) => {
         if (object.id !== currentStrokeId.current) return object;
-        return { ...object, points: [...object.points, { x, y }] };
+        return { ...object, points: [...object.points, { x: x - startX, y: y - startY }] };
       }));
     } else if (tool === 'select' && isSelecting.current) {
       const start = selectionStart.current;
@@ -156,21 +161,21 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     setObjects(prev =>
       prev.map(obj => {
         if (!selectedObjectIds.includes(obj.id)) return obj;
-        if (obj.type === 'stroke') {
-          return {
-            ...obj,
-            points: obj.points.map(p => ({
-              x: p.x + x,
-              y: p.y + y
-            }))
-          };
-        } else if (obj.type === 'text') {
-          return {
-            ...obj,
-            x: obj.x + x,
-            y: obj.y + y
-          };
-        }
+        // if (obj.type === 'stroke') {
+        //   return {
+        //     ...obj,
+        //     points: obj.points.map(p => ({
+        //       x: p.x + x,
+        //       y: p.y + y
+        //     }))
+        //   };
+        // } else if (obj.type === 'text') {
+        return {
+          ...obj,
+          x: obj.x + x,
+          y: obj.y + y
+        };
+        // }
       })
     );
 
@@ -183,7 +188,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       return (
         <Line
           key={object.id}
-          points={getFlatPoints(object.points)}
+          points={getFlatPoints(object)}
           stroke={object.color}
           strokeWidth={object.width}
           hitStrokeWidth={object.width + 10}
@@ -212,7 +217,6 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           fontSize={object.fontSize}
           lineHeight={1.2}
           fill={object.textColor}
-          // draggable={tool === 'select' && selectedObjectIds.includes(object.id)}
           onClick={(e) => handleObjectClick(object, e)}
           onTap={(e) => handleObjectClick(object, e)}
           onDblClick={() => {
@@ -224,7 +228,6 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
               setTool('text');
             }
           }}
-          // onDragEnd={(e) => handleTextDragEnd(object.id, e)}
           onMouseEnter={() => {
             if (tool === 'select') {
               setHoveredObjectId(object.id);
