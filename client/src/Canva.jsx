@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { Stage, Layer, Line, Text, Rect } from 'react-konva';
 import socket from './socket.js';
 import './app.css';
@@ -8,11 +8,58 @@ import { Path } from 'konva/lib/shapes/Path';
 export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }) {
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
+  const isSelecting = useRef(false);
+  const selectionStart = useRef(null);
+  const selectionRect = useRef(null);
+  const [selectionBox, setSelectionBox] = useState(null);
 
   const stageWidth = 800;
   const stageHeight = 600;
 
   const getFlatPoints = (points) => points.flatMap((point) => [point.x, point.y]);
+
+  const getObjectBounds = (object) => {
+    if (object.type === 'stroke') {
+      const points = getFlatPoints(object.points);
+      const xs = points.filter((_, index) => index % 2 === 0);
+      const ys = points.filter((_, index) => index % 2 === 1);
+      const left = Math.min(...xs) - object.width / 2 - 4;
+      const top = Math.min(...ys) - object.width / 2 - 4;
+      const width = Math.max(...xs) - Math.min(...xs) + object.width + 8;
+      const height = Math.max(...ys) - Math.min(...ys) + object.width + 8;
+      return { x: left, y: top, width, height };
+    }
+
+    if (object.type === 'text') {
+      const lines = (object.value || '').split('\n');
+      const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
+      const height = lines.length * object.fontSize * 1.2 + 8;
+      return { x: object.x - 4, y: object.y - 4, width, height };
+    }
+
+    return null;
+  };
+
+  const haveIntersection = (obj1, obj2) => {
+    return !(
+      obj1.x > obj2.x + obj2.width ||
+      obj1.x + obj1.width < obj2.x ||
+      obj1.y > obj2.y + obj2.height ||
+      obj1.y + obj1.height < obj2.y
+    );
+  };
+
+  const renderSelectionRect = (object) => {
+    if (!object) return null;
+    const { x, y, width, height } = getObjectBounds(object);
+    return <Rect key={object.id} x={x} y={y} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
+  };
+
+  const renderHoverRect = (object) => {
+    if (!object) return null;
+    const { x, y, width, height } = getObjectBounds(object);
+    return <Rect key={object.id} x={x} y={y} width={width} height={height} stroke="#0078d4" listening={false} />;
+  };
 
   const handleStageMouseDown = (e) => {
     const clickedOnEmpty = e.target === e.target.getStage();
@@ -30,20 +77,22 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
         type: 'stroke',
         color,
         width: brushSize,
-        points: [{ x, y }],
+        points: [pointerPos],
       };
       setObjects((prev) => [...prev, stroke]);
       currentStrokeId.current = stroke.id;
       setSelectedObjectIds([]);
     } else if (tool === 'select') {
-      setSelectedObjectIds([]);
+      isSelecting.current = true;
+      selectionStart.current = pointerPos;
+      selectionRect.current = { x, y, width: 0, height: 0 };
     } else if (tool === 'text') {
       setTimeout(() => {
         setEditingText({
           id: crypto.randomUUID(),
           type: 'text',
-          x: x,
-          y: y,
+          x,
+          y,
           value: '',
           textColor,
           fontSize,
@@ -53,22 +102,42 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   };
 
   const handleStageMouseMove = (e) => {
-    if (!isDrawing.current || tool !== 'draw') return;
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
     if (!pointerPos) return;
     const { x, y } = pointerPos;
 
-    setObjects((prev) => prev.map((object) => {
-      if (object.id !== currentStrokeId.current) return object;
-      return { ...object, points: [...object.points, { x, y }] };
-    }));
+    if (tool === 'draw' && isDrawing.current) {
+      setObjects((prev) => prev.map((object) => {
+        if (object.id !== currentStrokeId.current) return object;
+        return { ...object, points: [...object.points, { x, y }] };
+      }));
+    } else if (tool === 'select' && isSelecting.current) {
+      const start = selectionStart.current;
+      selectionRect.current = {
+        x: Math.min(start.x, x),
+        y: Math.min(start.y, y),
+        width: Math.abs(x - start.x),
+        height: Math.abs(y - start.y)
+      };
+      setSelectionBox({ ...selectionRect.current });
+    }
   };
 
   const handleStageMouseUp = () => {
     if (isDrawing.current) {
       isDrawing.current = false;
       currentStrokeId.current = null;
+    } else if (isSelecting.current) {
+      const box = selectionRect.current;
+      const selected = objects.filter((obj) => {
+        const objBox = getObjectBounds(obj);
+        return haveIntersection(objBox, box);
+      });
+      setSelectedObjectIds(selected.map(obj => obj.id));
+      isSelecting.current = false;
+      selectionRect.current = null;
+      setSelectionBox(null);
     }
   };
 
@@ -108,40 +177,6 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       return { ...object, x, y };
     }));
     socket.emit('moveObjects', [objectId], { x, y });
-  };
-
-  const getObjectBounds = (object) => {
-    if (object.type === 'stroke') {
-      const points = getFlatPoints(object.points);
-      const xs = points.filter((_, index) => index % 2 === 0);
-      const ys = points.filter((_, index) => index % 2 === 1);
-      const left = Math.min(...xs) - object.width / 2 - 4;
-      const top = Math.min(...ys) - object.width / 2 - 4;
-      const width = Math.max(...xs) - Math.min(...xs) + object.width + 8;
-      const height = Math.max(...ys) - Math.min(...ys) + object.width + 8;
-      return { left, top, width, height };
-    }
-
-    if (object.type === 'text') {
-      const lines = (object.value || '').split('\n');
-      const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
-      const height = lines.length * object.fontSize * 1.2 + 8;
-      return { left: object.x - 4, top: object.y - 4, width, height };
-    }
-
-    return null;
-  }
-
-  const renderSelectionRect = (object) => {
-    if (!object) return null;
-    const { left, top, width, height } = getObjectBounds(object);
-    return <Rect key={object.id} x={left} y={top} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
-  };
-
-  const renderHoverRect = (object) => {
-    if (!object) return null;
-    const { left, top, width, height } = getObjectBounds(object);
-    return <Rect key={object.id} x={left} y={top} width={width} height={height} stroke="#0078d4" listening={false} />;
   };
 
   useEffect(() => {
@@ -234,6 +269,17 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           })}
 
           {hoveredObjectId && !editingText && !selectedObjectIds.includes(hoveredObjectId) && renderHoverRect(objects.find((item) => item.id === hoveredObjectId))}
+
+          {selectionBox && (
+            <Rect
+              x={selectionBox.x}
+              y={selectionBox.y}
+              width={selectionBox.width}
+              height={selectionBox.height}
+              stroke="#8ebde0"
+              listening={false}
+            />
+          )}
         </Layer>
       </Stage>
     </div>
