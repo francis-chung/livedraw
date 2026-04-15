@@ -1,9 +1,12 @@
-import { useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import socket from './socket.js';
 import './editbar.css';
 
 export default function Textbox({ stageBox, objects, setObjects, editingText, setEditingText, isChangingText, setIsChangingText, interactingWithTextbar }) {
+    const measureRef = useRef(null);
+    const [textboxWidth, setTextboxWidth] = useState(0);
+
     const handleBlur = () => {
         if (!interactingWithTextbar) {
             const trimmed = editingText.value.trim();
@@ -30,24 +33,45 @@ export default function Textbox({ stageBox, objects, setObjects, editingText, se
         }
     }, [interactingWithTextbar]);
 
+    useEffect(() => {
+        if (!measureRef.current) return;
+
+        const width = measureRef.current.scrollWidth;
+        setTextboxWidth(width + editingText.fontSize);
+    }, [editingText.value, editingText.fontSize]);
+
     return (
-        <TextareaAutosize
-            className="textbox-container"
-            style={{
-                position: "absolute",
-                left: stageBox.left + editingText.x,
-                top: stageBox.top + editingText.y,
-                fontSize: editingText.fontSize,
-                fontFamily: "Arial",
-                lineHeight: 1.2,
-                color: editingText.textColor
-            }}
-            autoFocus
-            value={editingText.value || ""}
-            onChange={(e) => {
-                setEditingText({ ...editingText, value: e.target.value })
-            }}
-            onBlur={handleBlur}
-        />
+        <div>
+            <TextareaAutosize
+                className="textbox-container"
+                style={{
+                    position: "absolute",
+                    left: stageBox.left + editingText.x,
+                    top: stageBox.top + editingText.y,
+                    width: textboxWidth,
+                    fontSize: editingText.fontSize,
+                    fontFamily: "Arial",
+                    lineHeight: 1.2,
+                    color: editingText.textColor
+                }}
+                autoFocus
+                value={editingText.value || ""}
+                onChange={(e) => {
+                    setEditingText({ ...editingText, value: e.target.value })
+                }}
+                onBlur={handleBlur}
+            />
+            <span
+                ref={measureRef}
+                style={{
+                    position: "absolute",
+                    visibility: "hidden",
+                    fontSize: editingText.fontSize,
+                    fontFamily: "Arial"
+                }}
+            >
+                {editingText.value || " "}
+            </span>
+        </div>
     )
 }
