@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './app.css';
@@ -21,10 +21,8 @@ export default function App() {
   const [hoveredObjectId, setHoveredObjectId] = useState(null);
   const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
-  const canvasRef = useRef();
 
   const handleClear = () => {
-    canvasRef.current.clear();
     setObjects([]);
     setSelectedObjectIds([]);
     socket.emit('clear');
@@ -139,7 +137,6 @@ export default function App() {
         />
         <div className="canvas-container">
           <Canvas
-            ref={canvasRef}
             tool={tool}
             setTool={setTool}
             color={color}
@@ -156,7 +153,7 @@ export default function App() {
             setEditingText={setEditingText}
             setIsChangingText={setIsChangingText}
           />
-          {tool === 'text' && editingText && (
+          {/* {tool === 'text' && editingText && (
             <Textbox
               objects={objects}
               setObjects={setObjects}
@@ -166,7 +163,7 @@ export default function App() {
               setIsChangingText={setIsChangingText}
               interactingWithTextbar={interactingWithTextbar}
             />
-          )}
+          )} */}
         </div>
       </div>
     </div>

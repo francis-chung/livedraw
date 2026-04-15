@@ -1,197 +1,24 @@
-import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useRef } from 'react'
+import { Stage, Layer, Line, Text, Rect } from 'react-konva';
 import socket from './socket.js';
 import './app.css';
+import { TextPath } from 'konva/lib/shapes/TextPath';
 
-const Canvas = forwardRef(function Canvas({ tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }, ref) {
-  const canvasRef = useRef(null);
+export default function Canvas({ tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }) {
+  const stageRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
-  const isDragging = useRef(false);
-  const totalDelta = useRef({ x: 0, y: 0 });
-  const dragPrev = useRef({ x: 0, y: 0 });
-  const isSelecting = useRef(false);
-  const selectionStart = useRef({ x: 0, y: 0 });
-  const selectionBox = useRef(null);
 
-  const displayWidth = 800;
-  const displayHeight = 600;
+  const stageWidth = 800;
+  const stageHeight = 600;
 
-  useImperativeHandle(ref, () => ({
-    clear: () => {
-      const ctx = canvasRef.current.getContext('2d');
-      ctx.clearRect(0, 0, displayWidth, displayHeight);
-    }
-  }));
+  const getFlatPoints = (points) => points.flatMap((point) => [point.x, point.y]);
 
-  const getCanvasCoords = ({ offsetX, offsetY }) => {
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (offsetX / rect.width) * displayWidth,
-      y: (offsetY / rect.height) * displayHeight,
-    };
-  };
-
-  const getStrokeBounds = (points, width) => {
-    if (!points || points.length === 0) {
-      return { left: 0, top: 0, width: 0, height: 0 };
-    }
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
-    const left = Math.min(...xs) - width / 2 - 4;
-    const right = Math.max(...xs) + width / 2 + 4;
-    const top = Math.min(...ys) - width / 2 - 4;
-    const bottom = Math.max(...ys) + width / 2 + 4;
-    return { left, top, width: right - left, height: bottom - top };
-  };
-
-  const getTextBounds = (ctx, textObject) => {
-    ctx.font = `${textObject.fontSize}px Arial`;
-    const lines = (textObject.value || '').split('\n');
-    const lineHeight = fontSize * 1.2;
-    const width = Math.max(...lines.map((line) => ctx.measureText(line).width), 0);
-    return {
-      left: textObject.x - 4,
-      top: textObject.y - fontSize - 4,
-      width: width + 8,
-      height: lines.length * lineHeight + 8,
-    };
-  };
-
-  const getObjectBounds = (ctx, object) => {
-    if (object.type === 'box') {
-      return object;
-    }
-    if (object.type === 'stroke') {
-      return getStrokeBounds(object.points, object.width);
-    }
-    if (object.type === 'text') {
-      return getTextBounds(ctx, object);
-    }
-    return { left: 0, top: 0, width: 0, height: 0 };
-  };
-
-  const isPointInsideObject = (ctx, x, y, object) => {
-    const bounds = getObjectBounds(ctx, object);
-    return x >= bounds.left && x <= bounds.left + bounds.width && y >= bounds.top && y <= bounds.top + bounds.height;
-  };
-
-  const drawStroke = (ctx, stroke) => {
-    if (!stroke.points || stroke.points.length === 0) return;
-    const points = stroke.points;
-    ctx.strokeStyle = stroke.color;
-    ctx.lineWidth = stroke.width;
-
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length - 1; i++) {
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const midX = (p1.x + p2.x) / 2;
-      const midY = (p1.y + p2.y) / 2;
-      ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
-    }
-    const last = points[points.length - 1];
-    ctx.lineTo(last.x, last.y);
-    ctx.stroke();
-  };
-
-  const drawText = (ctx, textObject) => {
-    ctx.font = `${textObject.fontSize}px Arial`;
-    ctx.fillStyle = textObject.textColor;
-    const lines = (textObject.value || '').split('\n');
-    lines.forEach((line, index) => {
-      ctx.fillText(line, textObject.x, textObject.y + index * fontSize * 1.2);
-    });
-  };
-
-  const drawSelection = (ctx, object, clicked, selectBox) => {
-    const bounds = getObjectBounds(ctx, object);
-    ctx.save();
-    ctx.strokeStyle = '#0078d4';
-    if (selectBox) {
-      ctx.strokeStyle = '#8ebde0';
-    }
-    ctx.lineWidth = 1;
-    if (clicked) {
-      ctx.setLineDash([6, 4]);
-    }
-    ctx.strokeRect(bounds.left, bounds.top, bounds.width, bounds.height);
-    ctx.restore();
-  };
-
-  const redraw = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, displayWidth, displayHeight);
-
-    objects.forEach((object) => {
-      if (object.type === 'stroke') {
-        drawStroke(ctx, object);
-      } else if (object.type === 'text' && (!editingText || object.id !== editingText.id)) {
-        drawText(ctx, object);
-      }
-    });
-
-    if (selectedObjectIds.length > 0) {
-      objects.forEach(obj => {
-        if (selectedObjectIds.includes(obj.id)) {
-          drawSelection(ctx, obj, true, false);
-        }
-      })
-    }
-
-    const hoveredObject = objects.find((object) => object.id === hoveredObjectId);
-    if (hoveredObject) {
-      drawSelection(ctx, hoveredObject, false, false);
-    }
-
-    if (isSelecting && selectionBox.current) {
-      const boxObject = {
-        type: 'box',
-        left: selectionBox.current.x,
-        top: selectionBox.current.y,
-        width: selectionBox.current.width,
-        height: selectionBox.current.height
-      };
-      drawSelection(ctx, boxObject, false, true);
-    }
-  };
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = displayWidth * dpr;
-    canvas.height = displayHeight * dpr;
-
-    ctx.scale(dpr, dpr);
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
-
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-  }, []);
-
-  useEffect(() => {
-    if (tool !== "select") {
-      setSelectedObjectIds([]);
-      setHoveredObjectId(null);
-    }
-  }, [tool]);
-
-  useEffect(() => {
-    redraw();
-  }, [objects, selectedObjectIds, hoveredObjectId]);
-
-  const handleClick = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+  const handleStageMouseDown = (e) => {
+    const stage = e.target.getStage();
+    const pointerPos = stage.getPointerPosition();
+    if (!pointerPos) return;
+    const { x, y } = pointerPos;
 
     if (tool === 'draw') {
       isDrawing.current = true;
@@ -202,171 +29,222 @@ const Canvas = forwardRef(function Canvas({ tool, setTool, color, brushSize, fon
         width: brushSize,
         points: [{ x, y }],
       };
-
       setObjects((prev) => [...prev, stroke]);
       currentStrokeId.current = stroke.id;
-    }
-
-    else if (tool === 'select') {
-      const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
-      if (hitObject) {
-        if (selectedObjectIds.includes(hitObject.id)) {
-          isDragging.current = true;
-          dragPrev.current = { x, y };
-        } else {
-          setSelectedObjectIds([hitObject.id]);
-        }
-      } else {
-        setSelectedObjectIds([]);
-        isSelecting.current = true;
-        selectionStart.current = { x, y };
-        selectionBox.current = { x, y, width: 0, height: 0 };
-      }
-    }
-
-    else if (tool === 'text') {
-      setTimeout(() => {
-        setEditingText({
-          id: crypto.randomUUID(),
-          type: 'text',
-          x,
-          y,
-          value: '',
-          textColor: textColor,
-          fontSize: fontSize,
-        });
-      }, 0);
+      setSelectedObjectIds([]);
+    } else if (tool === 'select') {
+      setSelectedObjectIds([]);
+    } else if (tool === 'text') {
+      setEditingText({
+        id: crypto.randomUUID(),
+        type: 'text',
+        x,
+        y,
+        value: '',
+        textColor,
+        fontSize,
+      });
+      console.log("work");
     }
   };
 
-  const handleDoubleClick = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+  const handleStageMouseMove = (e) => {
+    if (!isDrawing.current || tool !== 'draw') return;
+    const stage = e.target.getStage();
+    const pointerPos = stage.getPointerPosition();
+    if (!pointerPos) return;
+    const { x, y } = pointerPos;
 
+    setObjects((prev) => prev.map((object) => {
+      if (object.id !== currentStrokeId.current) return object;
+      return { ...object, points: [...object.points, { x, y }] };
+    }));
+  };
+
+  const handleStageMouseUp = () => {
+    if (isDrawing.current) {
+      isDrawing.current = false;
+      currentStrokeId.current = null;
+    }
+  };
+
+  const handleObjectClick = (object, e) => {
     if (tool === 'select') {
-      const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
-      if (hitObject && hitObject.type === 'text') {
-        setIsChangingText(true);
-        setEditingText(hitObject);
-        setTool('text');
-      }
+      setSelectedObjectIds([object.id]);
+      e.cancelBubble = true;
     }
-  }
-
-  const handleMove = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    if (tool === 'draw') {
-      setObjects((prev) => prev.map((obj) =>
-        obj.id === currentStrokeId.current && obj.type === 'stroke'
-          ? { ...obj, points: [...obj.points, { x, y }] }
-          : obj
-      ));
-    }
-
-    else if (tool === 'select') {
-      if (isDragging.current) {
-        const dx = x - dragPrev.current.x;
-        const dy = y - dragPrev.current.y;
-        totalDelta.current.x += dx;
-        totalDelta.current.y += dy;
-        const selectedSet = new Set(selectedObjectIds);
-
-        setObjects((prev) => prev.map((obj) => {
-          if (!selectedSet.has(obj.id)) return obj;
-          if (obj.type === 'stroke') {
-            return {
-              ...obj,
-              points: obj.points.map((p) => ({
-                x: p.x + dx,
-                y: p.y + dy
-              }))
-            };
-          }
-          if (obj.type === 'text') {
-            return {
-              ...obj,
-              x: obj.x + dx,
-              y: obj.y + dy
-            };
-          }
-          return obj;
-        }));
-
-        dragPrev.current = { x, y };
-      } else if (isSelecting.current) {
-        const start = selectionStart.current;
-
-        selectionBox.current = {
-          x: Math.min(start.x, x),
-          y: Math.min(start.y, y),
-          width: Math.abs(x - start.x),
-          height: Math.abs(y - start.y)
-        };
-        redraw();
-      } else {
-        const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
-        setHoveredObjectId((hitObject && !selectedObjectIds.includes(hitObject.id)) ? hitObject.id : null);
-      }
+    if (tool === 'text' && object.type === 'text') {
+      setIsChangingText(true);
+      setEditingText(object);
+      setTool('text');
+      e.cancelBubble = true;
     }
   };
 
-  const handleLeave = () => {
-    if (isDrawing.current && currentStrokeId.current) {
-      const stroke = objects.find(obj => obj.id === currentStrokeId.current);
-      socket.emit('addObject', stroke);
+  const handleLineDragEnd = (objectId, e) => {
+    const node = e.target;
+    const dx = node.x();
+    const dy = node.y();
+    if (dx === 0 && dy === 0) return;
+
+    setObjects((prev) => prev.map((object) => {
+      if (object.id !== objectId) return object;
+      return {
+        ...object,
+        points: object.points.map((point) => ({
+          x: point.x + dx,
+          y: point.y + dy,
+        })),
+      };
+    }));
+
+    node.position({ x: 0, y: 0 });
+    socket.emit('moveObjects', [objectId], { x: dx, y: dy });
+  };
+
+  const handleTextDragEnd = (objectId, e) => {
+    const node = e.target;
+    const { x, y } = node.position();
+    setObjects((prev) => prev.map((object) => {
+      if (object.id !== objectId) return object;
+      return { ...object, x, y };
+    }));
+    socket.emit('moveObjects', [objectId], { x, y });
+  };
+
+  const renderSelectionRect = (object) => {
+    if (!object) return null;
+    if (object.type === 'stroke') {
+      const points = getFlatPoints(object.points);
+      const xs = points.filter((_, index) => index % 2 === 0);
+      const ys = points.filter((_, index) => index % 2 === 1);
+      const left = Math.min(...xs) - object.width / 2 - 4;
+      const top = Math.min(...ys) - object.width / 2 - 4;
+      const width = Math.max(...xs) - Math.min(...xs) + object.width + 8;
+      const height = Math.max(...ys) - Math.min(...ys) + object.width + 8;
+      return <Rect x={left} y={top} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
     }
 
-    if (isDragging.current) {
-      socket.emit('moveObjects', selectedObjectIds, totalDelta.current);
+    if (object.type === 'text') {
+      const lines = (object.value || '').split('\n');
+      const width = Math.max(50, Math.max(...lines.map((line) => line.length * object.fontSize * 0.55)));
+      const height = lines.length * object.fontSize * 1.2 + 8;
+      return <Rect x={object.x - 4} y={object.y - object.fontSize - 4} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
     }
 
-    if (isSelecting.current && selectionBox.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      const box = selectionBox.current;
+    return null;
+  };
 
-      const selectedIds = objects
-        .filter((obj => {
-          const bounds = getObjectBounds(ctx, obj);
-
-          return !(
-            bounds.left > box.x + box.width ||
-            bounds.left + bounds.width < box.x ||
-            bounds.top > box.y + box.height ||
-            bounds.top + bounds.height < box.y
-          );
-        }))
-        .map(obj => obj.id);
-
-      setSelectedObjectIds(selectedIds);
+  const renderHoverRect = (object) => {
+    if (!object) return null;
+    if (object.type === 'stroke') {
+      const points = getFlatPoints(object.points);
+      const xs = points.filter((_, index) => index % 2 === 0);
+      const ys = points.filter((_, index) => index % 2 === 1);
+      const left = Math.min(...xs) - object.width / 2 - 4;
+      const top = Math.min(...ys) - object.width / 2 - 4;
+      const width = Math.max(...xs) - Math.min(...xs) + object.width + 8;
+      const height = Math.max(...ys) - Math.min(...ys) + object.width + 8;
+      return <Rect x={left} y={top} width={width} height={height} stroke="#8ebde0" dash={[4, 4]} listening={false} />;
     }
 
-    isSelecting.current = false;
-    selectionBox.current = null;
-    isDrawing.current = false;
-    currentStrokeId.current = null;
-    isDragging.current = false;
-    totalDelta.current = { x: 0, y: 0 };
+    if (object.type === 'text') {
+      const lines = (object.value || '').split('\n');
+      const width = Math.max(50, Math.max(...lines.map((line) => line.length * object.fontSize * 0.55)));
+      const height = lines.length * object.fontSize * 1.2 + 8;
+      return <Rect x={object.x - 4} y={object.y - object.fontSize - 4} width={width} height={height} stroke="#8ebde0" dash={[4, 4]} listening={false} />;
+    }
+
+    return null;
   };
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={displayWidth}
-      height={displayHeight}
-      onMouseDown={handleClick}
-      onDoubleClick={handleDoubleClick}
-      onMouseMove={handleMove}
-      onMouseUp={handleLeave}
-      onMouseLeave={handleLeave}
-    />
-  );
-});
+    <div className="konva-canvas" style={{ position: 'relative', width: stageWidth, height: stageHeight }}>
+      <Stage
+        width={stageWidth}
+        height={stageHeight}
+        ref={stageRef}
+        onMouseDown={handleStageMouseDown}
+        onMouseMove={handleStageMouseMove}
+        onMouseUp={handleStageMouseUp}
+        onTouchStart={handleStageMouseDown}
+        onTouchMove={handleStageMouseMove}
+        onTouchEnd={handleStageMouseUp}
+      >
+        <Layer>
+          {objects.map((object) => {
+            if (object.type === 'stroke') {
+              return (
+                <Line
+                  key={object.id}
+                  points={getFlatPoints(object.points)}
+                  stroke={object.color}
+                  strokeWidth={object.width}
+                  hitStrokeWidth={object.width + 10}
+                  lineCap="round"
+                  lineJoin="round"
+                  tension={0.3}
+                  draggable={tool === 'select' && selectedObjectIds.includes(object.id)}
+                  onClick={(e) => handleObjectClick(object, e)}
+                  onTap={(e) => handleObjectClick(object, e)}
+                  onDragEnd={(e) => handleLineDragEnd(object.id, e)}
+                  onMouseEnter={() => {
+                    if (tool === 'select') {
+                      setHoveredObjectId(object.id);
+                    }
+                  }}
+                  onMouseLeave={() => setHoveredObjectId(null)}
+                />
+              );
+            }
 
-export default Canvas;
+            if (object.type === 'text') {
+              return (
+                <Text
+                  key={object.id}
+                  text={object.value || ''}
+                  x={object.x}
+                  y={object.y}
+                  fontSize={object.fontSize}
+                  fill={object.textColor}
+                  draggable={tool === 'select' && selectedObjectIds.includes(object.id)}
+                  onClick={(e) => handleObjectClick(object, e)}
+                  onTap={(e) => handleObjectClick(object, e)}
+                  onDblClick={() => {
+                    if (tool === 'select') {
+                      setIsChangingText(true);
+                      setEditingText(object);
+                      setTool('text');
+                    }
+                  }}
+                  onDragEnd={(e) => handleTextDragEnd(object.id, e)}
+                  onMouseEnter={() => {
+                    if (tool === 'select') {
+                      setHoveredObjectId(object.id);
+                    }
+                  }}
+                  onMouseLeave={() => setHoveredObjectId(null)}
+                />
+              );
+            }
+
+            return null;
+          })}
+
+          {tool === 'text' && editingText && (
+            <Text
+
+            />
+          )}
+
+          {selectedObjectIds.map((id) => {
+            const object = objects.find((item) => item.id === id);
+            return renderSelectionRect(object);
+          })}
+
+          {hoveredObjectId && !selectedObjectIds.includes(hoveredObjectId) && renderHoverRect(objects.find((item) => item.id === hoveredObjectId))}
+        </Layer>
+      </Stage>
+    </div>
+  );
+}
