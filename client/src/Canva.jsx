@@ -15,6 +15,9 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   const getFlatPoints = (points) => points.flatMap((point) => [point.x, point.y]);
 
   const handleStageMouseDown = (e) => {
+    const clickedOnEmpty = e.target === e.target.getStage();
+    if (!clickedOnEmpty) return;
+
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
     if (!pointerPos) return;
@@ -72,12 +75,6 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   const handleObjectClick = (object, e) => {
     if (tool === 'select') {
       setSelectedObjectIds([object.id]);
-      e.cancelBubble = true;
-    }
-    if (tool === 'text' && object.type === 'text') {
-      setIsChangingText(true);
-      setEditingText(object);
-      setTool('text');
       e.cancelBubble = true;
     }
   };
@@ -138,13 +135,13 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   const renderSelectionRect = (object) => {
     if (!object) return null;
     const { left, top, width, height } = getObjectBounds(object);
-    return <Rect x={left} y={top} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
+    return <Rect key={object.id} x={left} y={top} width={width} height={height} stroke="#0078d4" dash={[6, 4]} listening={false} />;
   };
 
   const renderHoverRect = (object) => {
     if (!object) return null;
     const { left, top, width, height } = getObjectBounds(object);
-    return <Rect x={left} y={top} width={width} height={height} stroke="#0078d4" listening={false} />;
+    return <Rect key={object.id} x={left} y={top} width={width} height={height} stroke="#0078d4" listening={false} />;
   };
 
   useEffect(() => {
