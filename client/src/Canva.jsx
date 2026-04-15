@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { Stage, Layer, Line, Text, Rect } from 'react-konva';
 import socket from './socket.js';
 import './app.css';
@@ -158,6 +158,12 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     return null;
   };
 
+  useEffect(() => {
+    if (tool !== 'select') {
+      setSelectedObjectIds([]);
+    }
+  }, [tool]);
+
   return (
     <div className="konva-canvas" style={{ position: 'relative', width: stageWidth, height: stageHeight }}>
       <Stage
@@ -215,8 +221,10 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
                     onTap={(e) => handleObjectClick(object, e)}
                     onDblClick={() => {
                       if (tool === 'select') {
+                        setSelectedObjectIds([]);
+                        setHoveredObjectId(null);
                         setIsChangingText(true);
-                        setEditingText(object);
+                        setEditingText({ ...object, y: object.y + object.fontSize * 0.5 });
                         setTool('text');
                       }
                     }}
@@ -234,12 +242,12 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
               return null;
             })}
 
-          {selectedObjectIds.map((id) => {
+          {tool === 'select' && selectedObjectIds.map((id) => {
             const object = objects.find((item) => item.id === id);
             return renderSelectionRect(object);
           })}
 
-          {hoveredObjectId && !selectedObjectIds.includes(hoveredObjectId) && renderHoverRect(objects.find((item) => item.id === hoveredObjectId))}
+          {hoveredObjectId && !editingText && !selectedObjectIds.includes(hoveredObjectId) && renderHoverRect(objects.find((item) => item.id === hoveredObjectId))}
         </Layer>
       </Stage>
     </div>
