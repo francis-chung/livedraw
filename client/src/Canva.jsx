@@ -1,16 +1,18 @@
 import { useRef, useEffect, useState } from 'react'
-import { Stage, Layer, Line, Text, Rect } from 'react-konva';
+import { Stage, Layer, Line, Text, Rect, Group } from 'react-konva';
 import socket from './socket.js';
 import './app.css';
 import { TextPath } from 'konva/lib/shapes/TextPath';
 import { Path } from 'konva/lib/shapes/Path';
 
 export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }) {
+  const groupRef = useRef(null);
   const isDrawing = useRef(false);
   const currentStrokeId = useRef(null);
   const isSelecting = useRef(false);
   const selectionStart = useRef(null);
   const selectionRect = useRef(null);
+  const dragStartPos = useRef(null);
   const [selectionBox, setSelectionBox] = useState(null);
 
   const stageWidth = 800;
@@ -148,36 +150,93 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     }
   };
 
-  const handleLineDragEnd = (objectId, e) => {
-    const node = e.target;
-    const dx = node.x();
-    const dy = node.y();
-    if (dx === 0 && dy === 0) return;
+  const handleGroupDragEnd = (e) => {
+    const { x, y } = e.target.position();
 
-    setObjects((prev) => prev.map((object) => {
-      if (object.id !== objectId) return object;
-      return {
-        ...object,
-        points: object.points.map((point) => ({
-          x: point.x + dx,
-          y: point.y + dy,
-        })),
-      };
-    }));
+    setObjects(prev =>
+      prev.map(obj => {
+        if (!selectedObjectIds.includes(obj.id)) return obj;
+        if (obj.type === 'stroke') {
+          return {
+            ...obj,
+            points: obj.points.map(p => ({
+              x: p.x + x,
+              y: p.y + y
+            }))
+          };
+        } else if (obj.type === 'text') {
+          return {
+            ...obj,
+            x: obj.x + x,
+            y: obj.y + y
+          };
+        }
+      })
+    );
 
-    node.position({ x: 0, y: 0 });
-    socket.emit('moveObjects', [objectId], { x: dx, y: dy });
+    socket.emit('moveObjects', [selectedObjectIds], { x, y });
+    e.target.position({ x: 0, y: 0 });
   };
 
-  const handleTextDragEnd = (objectId, e) => {
-    const node = e.target;
-    const { x, y } = node.position();
-    setObjects((prev) => prev.map((object) => {
-      if (object.id !== objectId) return object;
-      return { ...object, x, y };
-    }));
-    socket.emit('moveObjects', [objectId], { x, y });
-  };
+  const renderObject = (object) => {
+    if (object.type === 'stroke') {
+      return (
+        <Line
+          key={object.id}
+          points={getFlatPoints(object.points)}
+          stroke={object.color}
+          strokeWidth={object.width}
+          hitStrokeWidth={object.width + 10}
+          lineCap="round"
+          lineJoin="round"
+          tension={0.3}
+          onClick={(e) => handleObjectClick(object, e)}
+          onTap={(e) => handleObjectClick(object, e)}
+          onMouseEnter={() => {
+            if (tool === 'select') {
+              setHoveredObjectId(object.id);
+            }
+          }}
+          onMouseLeave={() => setHoveredObjectId(null)}
+        />
+      );
+    }
+
+    if (object.type === 'text') {
+      return (
+        <Text
+          key={object.id}
+          text={object.value || ''}
+          x={object.x}
+          y={object.y}
+          fontSize={object.fontSize}
+          lineHeight={1.2}
+          fill={object.textColor}
+          // draggable={tool === 'select' && selectedObjectIds.includes(object.id)}
+          onClick={(e) => handleObjectClick(object, e)}
+          onTap={(e) => handleObjectClick(object, e)}
+          onDblClick={() => {
+            if (tool === 'select') {
+              setSelectedObjectIds([]);
+              setHoveredObjectId(null);
+              setIsChangingText(true);
+              setEditingText({ ...object, y: object.y + object.fontSize * 0.5 });
+              setTool('text');
+            }
+          }}
+          // onDragEnd={(e) => handleTextDragEnd(object.id, e)}
+          onMouseEnter={() => {
+            if (tool === 'select') {
+              setHoveredObjectId(object.id);
+            }
+          }}
+          onMouseLeave={() => setHoveredObjectId(null)}
+        />
+      );
+    }
+
+    return null;
+  }
 
   useEffect(() => {
     if (tool !== 'select') {
@@ -200,68 +259,19 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       >
         <Layer>
           {objects
-            .filter((object) => !editingText || object.id !== editingText.id)
-            .map((object) => {
-              if (object.type === 'stroke') {
-                return (
-                  <Line
-                    key={object.id}
-                    points={getFlatPoints(object.points)}
-                    stroke={object.color}
-                    strokeWidth={object.width}
-                    hitStrokeWidth={object.width + 10}
-                    lineCap="round"
-                    lineJoin="round"
-                    tension={0.3}
-                    draggable={tool === 'select' && selectedObjectIds.includes(object.id)}
-                    onClick={(e) => handleObjectClick(object, e)}
-                    onTap={(e) => handleObjectClick(object, e)}
-                    onDragEnd={(e) => handleLineDragEnd(object.id, e)}
-                    onMouseEnter={() => {
-                      if (tool === 'select') {
-                        setHoveredObjectId(object.id);
-                      }
-                    }}
-                    onMouseLeave={() => setHoveredObjectId(null)}
-                  />
-                );
-              }
+            .filter((object) => !selectedObjectIds.includes(object.id) && (!editingText || object.id !== editingText.id))
+            .map(renderObject)}
 
-              if (object.type === 'text') {
-                return (
-                  <Text
-                    key={object.id}
-                    text={object.value || ''}
-                    x={object.x}
-                    y={object.y}
-                    fontSize={object.fontSize}
-                    lineHeight={1.2}
-                    fill={object.textColor}
-                    draggable={tool === 'select' && selectedObjectIds.includes(object.id)}
-                    onClick={(e) => handleObjectClick(object, e)}
-                    onTap={(e) => handleObjectClick(object, e)}
-                    onDblClick={() => {
-                      if (tool === 'select') {
-                        setSelectedObjectIds([]);
-                        setHoveredObjectId(null);
-                        setIsChangingText(true);
-                        setEditingText({ ...object, y: object.y + object.fontSize * 0.5 });
-                        setTool('text');
-                      }
-                    }}
-                    onDragEnd={(e) => handleTextDragEnd(object.id, e)}
-                    onMouseEnter={() => {
-                      if (tool === 'select') {
-                        setHoveredObjectId(object.id);
-                      }
-                    }}
-                    onMouseLeave={() => setHoveredObjectId(null)}
-                  />
-                );
-              }
-
-              return null;
-            })}
+          {selectedObjectIds.length > 0 && (
+            <Group
+              draggable
+              ref={groupRef}
+              onDragMove={() => console.log("to add: move")}
+              onDragEnd={handleGroupDragEnd}
+            >
+              {objects.filter(obj => selectedObjectIds.includes(obj.id)).map(renderObject)}
+            </Group>
+          )}
 
           {tool === 'select' && selectedObjectIds.map((id) => {
             const object = objects.find((item) => item.id === id);
