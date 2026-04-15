@@ -34,7 +34,6 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     } else if (tool === 'select') {
       setSelectedObjectIds([]);
     } else if (tool === 'text') {
-      const stageBox = stage.container().getBoundingClientRect();
       setTimeout(() => {
         setEditingText({
           id: crypto.randomUUID(),
@@ -209,6 +208,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
                     x={object.x}
                     y={object.y}
                     fontSize={object.fontSize}
+                    lineHeight={1.2}
                     fill={object.textColor}
                     draggable={tool === 'select' && selectedObjectIds.includes(object.id)}
                     onClick={(e) => handleObjectClick(object, e)}

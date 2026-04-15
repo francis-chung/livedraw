@@ -37,7 +37,8 @@ export default function Textbox({ stageBox, objects, setObjects, editingText, se
                 position: "absolute",
                 left: stageBox.left + editingText.x,
                 top: stageBox.top + editingText.y,
-                font: `${editingText.fontSize}px Arial`,
+                fontSize: editingText.fontSize,
+                fontFamily: "Arial",
                 lineHeight: 1.2,
                 color: editingText.textColor
             }}
