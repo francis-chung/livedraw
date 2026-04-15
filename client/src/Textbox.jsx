@@ -3,11 +3,7 @@ import TextareaAutosize from 'react-textarea-autosize';
 import socket from './socket.js';
 import './editbar.css';
 
-export default function Textbox({ objects, setObjects, editingText, setEditingText, isChangingText, setIsChangingText, interactingWithTextbar }) {
-    const paddingX = 21;
-    const paddingY = 20;
-    const ref = useRef(null);
-
+export default function Textbox({ stageBox, objects, setObjects, editingText, setEditingText, isChangingText, setIsChangingText, interactingWithTextbar }) {
     const handleBlur = () => {
         if (!interactingWithTextbar) {
             const trimmed = editingText.value.trim();
@@ -36,12 +32,11 @@ export default function Textbox({ objects, setObjects, editingText, setEditingTe
 
     return (
         <TextareaAutosize
-            ref={ref}
             className="textbox-container"
             style={{
                 position: "absolute",
-                left: editingText.x + paddingX,
-                top: editingText.y - 0.9 * editingText.fontSize + paddingY,
+                left: stageBox.left + editingText.x,
+                top: stageBox.top + editingText.y,
                 font: `${editingText.fontSize}px Arial`,
                 lineHeight: 1.2,
                 color: editingText.textColor

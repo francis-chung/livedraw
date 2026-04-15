@@ -15,7 +15,7 @@ export default function Textbar({ fontSize, setFontSize, textColor, setTextColor
                     min="1"
                     max="60"
                     value={fontSize}
-                    onChange={(e) => setFontSize(e.target.value)}
+                    onChange={(e) => setFontSize(Number(e.target.value))}
                 />
                 <span>{fontSize}</span>
             </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './app.css';
@@ -10,6 +10,7 @@ import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
 
 export default function App() {
+  const stageRef = useRef(null);
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
   const [fontSize, setFontSize] = useState(16);
@@ -137,6 +138,7 @@ export default function App() {
         />
         <div className="canvas-container">
           <Canvas
+            stageRef={stageRef}
             tool={tool}
             setTool={setTool}
             color={color}
@@ -153,8 +155,9 @@ export default function App() {
             setEditingText={setEditingText}
             setIsChangingText={setIsChangingText}
           />
-          {/* {tool === 'text' && editingText && (
+          {tool === 'text' && editingText && (
             <Textbox
+              stageBox={stageRef.current.container().getBoundingClientRect()}
               objects={objects}
               setObjects={setObjects}
               editingText={editingText}
@@ -163,7 +166,7 @@ export default function App() {
               setIsChangingText={setIsChangingText}
               interactingWithTextbar={interactingWithTextbar}
             />
-          )} */}
+          )}
         </div>
       </div>
     </div>
