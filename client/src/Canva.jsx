@@ -160,6 +160,8 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
   const handleStageMouseUp = () => {
     if (isDrawing.current) {
+      const stroke = objects.find(obj => obj.id === currentStrokeId.current);
+      socket.emit('addObject', stroke);
       isDrawing.current = false;
       currentStrokeId.current = null;
     } else if (isSelecting.current) {
@@ -207,7 +209,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       })
     );
 
-    socket.emit('moveObjects', [selectedObjectIds], { x, y });
+    socket.emit('moveObjects', selectedObjectIds, { x, y });
     e.target.position({ x: 0, y: 0 });
     setDragPos({ x: 0, y: 0 });
   };
@@ -285,6 +287,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
+        onMouseLeave={handleStageMouseUp}
         onTouchStart={handleStageMouseDown}
         onTouchMove={handleStageMouseMove}
         onTouchEnd={handleStageMouseUp}
