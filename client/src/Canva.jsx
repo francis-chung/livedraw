@@ -8,12 +8,15 @@ import { Path } from 'konva/lib/shapes/Path';
 export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }) {
   const groupRef = useRef(null);
   const isDrawing = useRef(false);
-  const drawStart = useRef(false);
+  const drawStart = useRef(null);
   const currentStrokeId = useRef(null);
   const isSelecting = useRef(false);
   const selectionStart = useRef(null);
   const selectionRect = useRef(null);
+  const isDragging = useRef(false);
+  const dragStart = useRef(null);
   const [selectionBox, setSelectionBox] = useState(null);
+  const [dragPos, setDragPos] = useState(null);
 
   const stageWidth = 800;
   const stageHeight = 600;
@@ -53,13 +56,13 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     );
   };
 
-  const renderSelectionRect = (object, select, marquee) => {
+  const renderSelectionRect = (object, select, marquee, dx = 0, dy = 0) => {
     if (!object) return null;
-    const { x, y, width, height } = getObjectBounds(object);
+    const { x, y, width, height } = (object.type === 'box' ? object : getObjectBounds(object));
     return <Rect
       key={object.id}
-      x={x}
-      y={y}
+      x={x + dx}
+      y={y + dy}
       width={width}
       height={height}
       stroke={marquee ? "#8ebde0" : "#0078d4"}
@@ -68,10 +71,20 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     />;
   };
 
-  const renderHoverRect = (object) => {
-    if (!object) return null;
-    const { x, y, width, height } = getObjectBounds(object);
-    return <Rect key={object.id} x={x} y={y} width={width} height={height} stroke="#0078d4" listening={false} />;
+  const renderSelectionsRect = (drag = false) => {
+    return selectedObjectIds.map((id) => {
+      const object = objects.find((item) => item.id === id);
+      return renderSelectionRect(object, true, false, drag ? dragPos.x : 0, drag ? dragPos.y : 0);
+    });
+  };
+
+  const renderHoverRect = () => {
+    return renderSelectionRect(objects.find((item) => item.id === hoveredObjectId), false, false);
+  };
+
+  const renderMarqueeRect = () => {
+    const box = { ...selectionBox, type: 'box' };
+    return renderSelectionRect(box, false, true);
   };
 
   const handleStageMouseDown = (e) => {
@@ -167,7 +180,18 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     }
   };
 
+  const handleGroupDragStart = (e) => {
+    isDragging.current = true;
+    dragStart.current = e.target.position();
+  };
+
+  const handleGroupDragMove = (e) => {
+    const { x, y } = e.target.position();
+    setDragPos(e.target.position());
+  };
+
   const handleGroupDragEnd = (e) => {
+    isDragging.current = false;
     const { x, y } = e.target.position();
 
     setObjects(prev =>
@@ -183,6 +207,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
     socket.emit('moveObjects', [selectedObjectIds], { x, y });
     e.target.position({ x: 0, y: 0 });
+    setDragPos({ x: 0, y: 0 });
   };
 
   const renderObject = (object) => {
@@ -271,30 +296,19 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
             <Group
               draggable
               ref={groupRef}
-              onDragMove={() => console.log("to add: move")}
+              onDragStart={handleGroupDragStart}
+              onDragMove={handleGroupDragMove}
               onDragEnd={handleGroupDragEnd}
             >
               {objects.filter(obj => selectedObjectIds.includes(obj.id)).map(renderObject)}
             </Group>
           )}
 
-          {tool === 'select' && selectedObjectIds.map((id) => {
-            const object = objects.find((item) => item.id === id);
-            return renderSelectionRect(object, true, false);
-          })}
-
-          {hoveredObjectId && !editingText && !isSelecting.current && !selectedObjectIds.includes(hoveredObjectId) && renderSelectionRect(objects.find((item) => item.id === hoveredObjectId), false, false)}
-
-          {selectionBox && (
-            <Rect
-              x={selectionBox.x}
-              y={selectionBox.y}
-              width={selectionBox.width}
-              height={selectionBox.height}
-              stroke="#8ebde0"
-              listening={false}
-            />
-          )}
+          {tool === 'select' && !isDragging.current && renderSelectionsRect()}
+          {isDragging.current && renderSelectionsRect(true)}
+          {hoveredObjectId && !editingText && !isSelecting.current
+            && !selectedObjectIds.includes(hoveredObjectId) && renderHoverRect()}
+          {selectionBox && renderMarqueeRect()}
         </Layer>
       </Stage>
     </div>
