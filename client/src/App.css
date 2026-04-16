@@ -120,7 +120,7 @@ body.dark {
   transition: background-color 0.3s;
 }
 
-canvas {
+.konva-canvas {
   z-index: 1;
   /* fills entire width of container, starts on new line etc. */
   display: block;

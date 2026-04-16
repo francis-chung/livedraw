@@ -49,8 +49,6 @@
 .textbox-container {
     position: absolute;
     z-index: 10;
-    /* ensures text does not get cut off or wrap in a wide textbox */
-    width: 100%;
     border: none;
     padding: 0;
     background: transparent;

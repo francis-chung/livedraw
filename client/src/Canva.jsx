@@ -1,283 +1,157 @@
-import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import { Stage, Layer, Line, Text, Rect, Group } from 'react-konva';
 import socket from './socket.js';
 import './app.css';
+import { TextPath } from 'konva/lib/shapes/TextPath';
+import { Path } from 'konva/lib/shapes/Path';
 
-const Canvas = forwardRef(function Canvas({ tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }, ref) {
-  // useRef: similar to useState, but does not cause a screen re-render
-  // only for when data not shown on-screen is modified     
-  const canvasRef = useRef(null);
+// useRef: similar to useState, but does not cause a screen re-render
+// only for when data not shown on-screen is modified 
+export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectIds, setHoveredObjectIds, editingText, setEditingText, setIsChangingText }) {
+  const groupRef = useRef(null);
   const isDrawing = useRef(false);
+  const drawStart = useRef(null);
   const currentStrokeId = useRef(null);
-  const isDragging = useRef(false);
-  const totalDelta = useRef({ x: 0, y: 0 });
-  const dragPrev = useRef({ x: 0, y: 0 });
   const isSelecting = useRef(false);
-  const selectionStart = useRef({ x: 0, y: 0 });
-  const selectionBox = useRef(null);
+  const selectionStart = useRef(null);
+  const isDragging = useRef(false);
+  const dragStart = useRef(null);
+  const [selectionBox, setSelectionBox] = useState(null);
+  const [dragPos, setDragPos] = useState(null);
 
-  // size of the canvas
-  const displayWidth = 800;
-  const displayHeight = 600;
+  const stageWidth = 800;
+  const stageHeight = 600;
 
-  // useImperativeHandle: custom adds methods to a parent's ref (App.jsx)
-  // especially for imperative objects, such as canvas drawing
-  // bypasses React state  
-  useImperativeHandle(ref, () => ({
-    clear: () => {
-      const ctx = canvasRef.current.getContext('2d');
-      ctx.clearRect(0, 0, displayWidth, displayHeight);
-    }
-  }));
-
-  // converts coordinates relative to displayed canvas into 
-  // coordinates relative to internal drawing system
-  const getCanvasCoords = ({ offsetX, offsetY }) => {
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-
-    // divide by rect variables to normalize, then multiply 
-    // by canvas variables so canvas can draw in the right place
-    return {
-      x: (offsetX / rect.width) * displayWidth,
-      y: (offsetY / rect.height) * displayHeight,
-    };
-  };
-
-  // creates stroke bounding box for selection tool
-  const getStrokeBounds = (points, width) => {
-    // zero-sized box
-    if (!points || points.length === 0) {
-      return { left: 0, top: 0, width: 0, height: 0 };
-    }
-
-    // creates arrays of x- and y-coordinates separately
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
-
-    // finds extremum value, then accounts for thickness of 
-    // stroke (strokes are drawn centered on path) and safety margin
-    const left = Math.min(...xs) - width / 2 - 4;
-    const right = Math.max(...xs) + width / 2 + 4;
-    const top = Math.min(...ys) - width / 2 - 4;
-    const bottom = Math.max(...ys) + width / 2 + 4;
-
-    return { left, top, width: right - left, height: bottom - top };
-  };
-
-  // creates text bounding box for selection tool
-  const getTextBounds = (ctx, textObject) => {
-    const fontSize = textObject.fontSize || 16;
-    // ctx.measureText(...) relies on accurate font definition
-    ctx.font = `${textObject.fontSize}px Arial`;
-    const lines = (textObject.value || '').split('\n');
-    const lineHeight = fontSize * 1.2;
-
-    // find the widest line in textObject
-    const width = Math.max(...lines.map((line) => ctx.measureText(line).width), 0);
-
-    // canvas text positioned using baseline, so top must account for this
-    // also adds for padding
-    return {
-      left: textObject.x - 4,
-      top: textObject.y - fontSize - 4,
-      width: width + 8,
-      height: lines.length * lineHeight + 8,
-    };
+  // flattens points array by one level => [x1, y1, x2, y2...]
+  // necessary for Konva line points format
+  const getFlatPoints = (obj) => {
+    return obj.points.flatMap(p => [p.x + obj.x, p.y + obj.y]);
   };
 
   // creates bounding boxes for any type of object
-  const getObjectBounds = (ctx, object) => {
-    if (object.type === 'box') { // specifically for selectionBox for now
-      return object;
-    }
+  const getObjectBounds = (object) => {
     if (object.type === 'stroke') {
-      return getStrokeBounds(object.points, object.width);
+      const points = getFlatPoints(object);
+      // processes flat points based on even/odd index positions
+      const xs = points.filter((_, index) => index % 2 === 0);
+      const ys = points.filter((_, index) => index % 2 === 1);
+
+      // finds extremum value, then accounts for thickness of 
+      // stroke (strokes are drawn centered on path) and safety margin
+      const left = Math.min(...xs) - object.width / 2 - 4;
+      const top = Math.min(...ys) - object.width / 2 - 4;
+      const width = Math.max(...xs) - Math.min(...xs) + object.width + 8;
+      const height = Math.max(...ys) - Math.min(...ys) + object.width + 8;
+
+      return { x: left, y: top, width, height };
     }
+
     if (object.type === 'text') {
-      return getTextBounds(ctx, object);
+      const lines = (object.value || '').split('\n');
+
+      // approximates width based on font size of textbox
+      const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
+      const height = lines.length * object.fontSize * 1.2 + 8;
+
+      // accounts for padding
+      return { x: object.x - 4, y: object.y - 4, width, height };
     }
-    return { left: 0, top: 0, width: 0, height: 0 };
+
+    return null;
   };
 
-  const isPointInsideObject = (ctx, x, y, object) => {
-    const bounds = getObjectBounds(ctx, object);
-    return x >= bounds.left && x <= bounds.left + bounds.width && y >= bounds.top && y <= bounds.top + bounds.height;
+  // checks if two objects' bounding boxes intersect
+  // precondition: obj1 and obj2 are in the form {x, y, width, height}
+  const haveIntersection = (obj1, obj2) => {
+    return !(
+      obj1.x > obj2.x + obj2.width ||
+      obj1.x + obj1.width < obj2.x ||
+      obj1.y > obj2.y + obj2.height ||
+      obj1.y + obj1.height < obj2.y
+    );
   };
 
-  const drawStroke = (ctx, stroke) => {
-    if (!stroke.points || stroke.points.length === 0) return;
-    const points = stroke.points;
-    ctx.strokeStyle = stroke.color;
-    ctx.lineWidth = stroke.width;
+  // renders selection, hover and marquee rectangles
+  // optionally add a displacement vector when selected objects are dragged 
+  const renderSelectionRect = (object, select, marquee, dx = 0, dy = 0) => {
+    if (!object) return null;
+    // box-type objects are already in the correct format
+    const { x, y, width, height } = (object.type === 'box' ? object : getObjectBounds(object));
 
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-
-    // creates a quadratic (Bezier) curve based on midpoints of defined points
-    // depends on start point (previous point / midpoint), control point to 
-    // pull the curve toward it (p1), and end point (new midpoint)
-    for (let i = 1; i < points.length - 1; i++) {
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const midX = (p1.x + p2.x) / 2;
-      const midY = (p1.y + p2.y) / 2;
-      ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
-    }
-    const last = points[points.length - 1];
-    ctx.lineTo(last.x, last.y);
-    ctx.stroke();
+    // conditions available based on type of selection box
+    // dash: 6px drawn, 4px gap
+    return <Rect
+      key={object.id}
+      x={x + dx}
+      y={y + dy}
+      width={width}
+      height={height}
+      stroke={marquee ? "#8ebde0" : "#0078d4"}
+      dash={select ? [6, 4] : [1, 0]}
+      listening={false}
+    />;
   };
 
-  const drawText = (ctx, textObject) => {
-    ctx.font = `${textObject.fontSize}px Arial`;
-    ctx.fillStyle = textObject.textColor;
-    const lines = (textObject.value || '').split('\n');
-    lines.forEach((line, index) => {
-      ctx.fillText(line, textObject.x, textObject.y + index * fontSize * 1.2);
+  // renders bounding boxes for selected objects, with optional parameter when dragging
+  const renderSelectionsRect = (drag = false) => {
+    return selectedObjectIds.map((id) => {
+      const object = objects.find((item) => item.id === id);
+      return renderSelectionRect(object, true, false, drag ? dragPos.x : 0, drag ? dragPos.y : 0);
     });
   };
 
-  // boolean parameters after object used to modify box appearance based on functionality
-  const drawSelection = (ctx, object, clicked, selectBox) => {
-    const bounds = getObjectBounds(ctx, object);
-
-    // stores the current state of ctx so that later modifications
-    // can be easily removed
-    ctx.save();
-    ctx.strokeStyle = '#0078d4';
-    if (selectBox) {
-      ctx.strokeStyle = '#8ebde0';
-    }
-    ctx.lineWidth = 1;
-    if (clicked) {
-      // 6px drawn, 4px gap only if selected
-      ctx.setLineDash([6, 4]);
-    }
-    // draws rectangular outline    
-    ctx.strokeRect(bounds.left, bounds.top, bounds.width, bounds.height);
-    // removes all temporary modifications of ctx and restores
-    // previous state
-    ctx.restore();
+  // renders bounding box for hovered objects
+  const renderHoverRect = () => {
+    return objects
+      .filter(obj => hoveredObjectIds.includes(obj.id))
+      .map(obj => renderSelectionRect(obj, false, false));
   };
 
-  const redraw = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, displayWidth, displayHeight);
-
-    objects.forEach((object) => {
-      if (object.type === 'stroke') {
-        drawStroke(ctx, object);
-      } else if (object.type === 'text' && (!editingText || object.id !== editingText.id)) {
-        drawText(ctx, object); // does not render the textbox being edited, if applicable
-      }
-    });
-
-    if (selectedObjectIds.length > 0) {
-      objects.forEach(obj => {
-        if (selectedObjectIds.includes(obj.id)) {
-          drawSelection(ctx, obj, true, false);
-        }
-      })
-    }
-
-    const hoveredObject = objects.find((object) => object.id === hoveredObjectId);
-    if (hoveredObject) {
-      drawSelection(ctx, hoveredObject, false, false);
-    }
-
-    if (isSelecting && selectionBox.current) {
-      // creates a new object matching helper function parameters 
-      // to facilitate drawing selection box
-      const boxObject = {
-        type: 'box',
-        left: selectionBox.current.x,
-        top: selectionBox.current.y,
-        width: selectionBox.current.width,
-        height: selectionBox.current.height
-      };
-      drawSelection(ctx, boxObject, false, true);
-    }
+  // renders bounding box of marquee select
+  // creates a box-typed object to fit helper function parameters
+  const renderMarqueeRect = () => {
+    const box = { ...selectionBox, type: 'box' };
+    return renderSelectionRect(box, false, true);
   };
 
-  // runs on mount
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+  const handleStageMouseDown = (e) => {
+    // ensures the stage is clicked, not any other object on top of it
+    const clickedOnEmpty = e.target === e.target.getStage();
+    if (!clickedOnEmpty) return;
 
-    // since CSS pixels and device pixels differ, an adjustment is made
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = displayWidth * dpr;
-    canvas.height = displayHeight * dpr;
-
-    // every coordinate drawn on-screen is also scaled to prevent offsets
-    ctx.scale(dpr, dpr);
-    // visual size of canvas remains the same despite internal changes
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
-
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-  }, []);
-
-  // redraws every time objects are added or selected
-  useEffect(() => {
-    if (tool !== "select") {
-      setSelectedObjectIds([]);
-      setHoveredObjectId(null);
-    }
-  }, [tool]);
-
-  useEffect(() => {
-    redraw();
-  }, [objects, selectedObjectIds, hoveredObjectId]);
-
-  const handleClick = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const stage = e.target.getStage();
+    const pointerPos = stage.getPointerPosition();
+    if (!pointerPos) return;
+    const { x, y } = pointerPos;
 
     if (tool === 'draw') {
       isDrawing.current = true;
+      // format: (x, y): coordinates of first point in stroke
+      // points: coordinates of points relative to first point in stroke
       const stroke = {
         id: crypto.randomUUID(),
         type: 'stroke',
+        x,
+        y,
         color,
         width: brushSize,
-        points: [{ x, y }],
+        points: [{ x: 0, y: 0 }],
       };
 
       setObjects((prev) => [...prev, stroke]);
       currentStrokeId.current = stroke.id;
-    }
+      // NOTE: redundant because stroke.x and stroke.y store the same thing
+      drawStart.current = { x, y };
+    } else if (tool === 'select') {
+      setSelectedObjectIds([]);
 
-    else if (tool === 'select') {
-      // searches objects in reverse order to find uppermost
-      // object in stack
-      const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
-
-      // drags objects if already selected; otherwise selects them
-      if (hitObject) {
-        if (selectedObjectIds.includes(hitObject.id)) {
-          isDragging.current = true;
-          dragPrev.current = { x, y };
-        } else {
-          setSelectedObjectIds([hitObject.id]);
-        }
-      } else { // enables multi-select if no object is clicked on
-        setSelectedObjectIds([]);
-        isSelecting.current = true;
-        selectionStart.current = { x, y };
-        selectionBox.current = { x, y, width: 0, height: 0 };
-      }
-    }
-
-    else if (tool === 'text') {
-      // setTimeout() required so clicking on canvas doesn't focus 
-      // on canvas again and trigger onBlur() after initially creating textbox    
+      // assumes marquee select until mouseUp
+      isSelecting.current = true;
+      selectionStart.current = pointerPos;
+      setSelectionBox({ x, y, width: 0, height: 0 });
+    } else if (tool === 'text') {
+      // setTimeout() required so clicking on stage doesn't focus 
+      // on stage again and trigger onBlur() after initially creating textbox         
       setTimeout(() => {
         setEditingText({
           id: crypto.randomUUID(),
@@ -285,152 +159,222 @@ const Canvas = forwardRef(function Canvas({ tool, setTool, color, brushSize, fon
           x,
           y,
           value: '',
-          textColor: textColor,
-          fontSize: fontSize,
+          textColor,
+          fontSize,
         });
       }, 0);
     }
   };
 
-  const handleDoubleClick = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+  const handleStageMouseMove = (e) => {
+    const stage = e.target.getStage();
+    const pointerPos = stage.getPointerPosition();
+    if (!pointerPos) return;
+    const { x, y } = pointerPos;
 
-    // enables editing an already-created textbox and switches to text tool
-    if (tool === 'select') {
-      const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
-      if (hitObject && hitObject.type === 'text') {
-        setIsChangingText(true);
-        setEditingText(hitObject);
-        setTool('text');
-      }
+    // adds new point in current stroke
+    if (tool === 'draw' && isDrawing.current) {
+      const { x: startX, y: startY } = drawStart.current;
+
+      // only changes the stroke corresponding to the right object
+      setObjects((prev) => prev.map((object) => {
+        if (object.id !== currentStrokeId.current) return object;
+        // ensures coordinates of points are relative to position of first point in stroke
+        return { ...object, points: [...object.points, { x: x - startX, y: y - startY }] };
+      }));
+    } else if (tool === 'select' && isSelecting.current) {
+      const start = selectionStart.current;
+
+      // adjusts selectionBox data to ensure proper rendering based on new coordinates
+      setSelectionBox({
+        x: Math.min(start.x, x),
+        y: Math.min(start.y, y),
+        width: Math.abs(x - start.x),
+        height: Math.abs(y - start.y)
+      });
+
+      // sets all objects the selectionBox is "over" to hovered, to indicate elements to be selected
+      setHoveredObjectIds(objects
+        .filter(obj => haveIntersection(getObjectBounds(obj), selectionBox))
+        .map(obj => obj.id)
+      );
     }
+  };
+
+  const handleStageMouseUp = () => {
+    if (isDrawing.current) {
+      const stroke = objects.find(obj => obj.id === currentStrokeId.current);
+
+      // terminate stroke and send to server
+      socket.emit('addObject', stroke);
+      isDrawing.current = false;
+      currentStrokeId.current = null;
+    } else if (isSelecting.current) {
+      // condition prevents clicking without dragging from invoking selection
+      if (selectionBox.width || selectionBox.height) {
+        // sets all objects the selectionBox is "over" to selected
+        const selected = objects.filter((obj) => {
+          const objBox = getObjectBounds(obj);
+          return haveIntersection(objBox, selectionBox);
+        });
+        setSelectedObjectIds(selected.map(obj => obj.id));
+      }
+
+      isSelecting.current = false;
+      setSelectionBox(null);
+    }
+  };
+
+  const handleObjectClick = (object, e) => {
+    if (tool === 'select') {
+      setSelectedObjectIds([object.id]);
+      // prevents higher objects (e.g. stage) from detecting click
+      // NOTE: likely not necessary, since stage already has guards against it
+      e.cancelBubble = true;
+    }
+  };
+
+  const handleGroupDragStart = (e) => {
+    isDragging.current = true;
+    dragStart.current = e.target.position();
+  };
+
+  const handleGroupDragMove = (e) => {
+    const { x, y } = e.target.position();
+    // triggers re-renders of selected object boxes with corresponding offsets 
+    setDragPos(e.target.position());
+  };
+
+  const handleGroupDragEnd = (e) => {
+    isDragging.current = false;
+    const { x, y } = e.target.position();
+
+    // changes coordinates of objects after moving, then sends to server
+    setObjects(prev =>
+      prev.map(obj => {
+        if (!selectedObjectIds.includes(obj.id)) return obj;
+        return {
+          ...obj,
+          x: obj.x + x,
+          y: obj.y + y
+        };
+      })
+    );
+
+    socket.emit('moveObjects', selectedObjectIds, { x, y });
+    e.target.position({ x: 0, y: 0 });
+    setDragPos({ x: 0, y: 0 });
+  };
+
+  const renderObject = (object) => {
+    if (object.type === 'stroke') {
+      return (
+        <Line
+          key={object.id}
+          points={getFlatPoints(object)}
+          stroke={object.color}
+          strokeWidth={object.width}
+          hitStrokeWidth={object.width + 10}
+          lineCap="round"
+          lineJoin="round"
+          tension={0.3}
+          onClick={(e) => handleObjectClick(object, e)}
+          onTap={(e) => handleObjectClick(object, e)}
+          onMouseEnter={() => {
+            if (tool === 'select') {
+              setHoveredObjectIds([object.id]);
+            }
+          }}
+          onMouseLeave={() => setHoveredObjectIds([])}
+        />
+      );
+    }
+
+    if (object.type === 'text') {
+      return (
+        <Text
+          key={object.id}
+          text={object.value || ''}
+          x={object.x}
+          y={object.y}
+          fontSize={object.fontSize}
+          lineHeight={1.2}
+          fill={object.textColor}
+          onClick={(e) => handleObjectClick(object, e)}
+          onTap={(e) => handleObjectClick(object, e)}
+          onDblClick={() => {
+            if (tool === 'select') {
+              // opens text edit option and changes tool to text
+              setSelectedObjectIds([]);
+              setHoveredObjectIds([]);
+              setIsChangingText(true);
+              setEditingText({ ...object, y: object.y + object.fontSize * 0.5 });
+              setTool('text');
+            }
+          }}
+          onMouseEnter={() => {
+            if (tool === 'select') {
+              setHoveredObjectIds([object.id]);
+            }
+          }}
+          onMouseLeave={() => setHoveredObjectIds([])}
+        />
+      );
+    }
+
+    return null;
   }
 
-  const handleMove = ({ nativeEvent }) => {
-    const { x, y } = getCanvasCoords(nativeEvent);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    if (tool === 'draw') {
-      setObjects((prev) => prev.map((obj) =>
-        obj.id === currentStrokeId.current && obj.type === 'stroke'
-          ? { ...obj, points: [...obj.points, { x, y }] }
-          : obj
-      ));
+  useEffect(() => {
+    if (tool !== 'select') {
+      setSelectedObjectIds([]);
     }
+  }, [tool]);
 
-    else if (tool === 'select') {
-      if (isDragging.current) {
-        const dx = x - dragPrev.current.x;
-        const dy = y - dragPrev.current.y;
-        // accumulates delta change to compute final delta to send to server
-        totalDelta.current.x += dx;
-        totalDelta.current.y += dy;
-        // using a set is not necessarily, but apparently provides better performance        
-        const selectedSet = new Set(selectedObjectIds);
-
-        // moves the each of the selected object's coordinates by {dx, dy}        
-        setObjects((prev) => prev.map((obj) => {
-          if (!selectedSet.has(obj.id)) return obj;
-          if (obj.type === 'stroke') {
-            return {
-              ...obj,
-              points: obj.points.map((p) => ({
-                x: p.x + dx,
-                y: p.y + dy
-              }))
-            };
-          }
-          if (obj.type === 'text') {
-            return {
-              ...obj,
-              x: obj.x + dx,
-              y: obj.y + dy
-            };
-          }
-          return obj;
-        }));
-
-        // updates reference point for dragging        
-        dragPrev.current = { x, y };
-      } else if (isSelecting.current) {
-        const start = selectionStart.current;
-
-        // recreates selectionBox based on current mouse coordinates
-        selectionBox.current = {
-          x: Math.min(start.x, x),
-          y: Math.min(start.y, y),
-          width: Math.abs(x - start.x),
-          height: Math.abs(y - start.y)
-        };
-
-        // since selectionBox is a ref, useEffect cannot use it properly as a dependency
-        // so redraw is manually called instead
-        redraw();
-      } else { // creates hover effect if object is not one of selected objects
-        const hitObject = [...objects].reverse().find((obj) => isPointInsideObject(ctx, x, y, obj));
-        setHoveredObjectId((hitObject && !selectedObjectIds.includes(hitObject.id)) ? hitObject.id : null);
-      }
-    }
-  };
-
-  const handleLeave = () => {
-    if (isDrawing.current && currentStrokeId.current) {
-      const stroke = objects.find(obj => obj.id === currentStrokeId.current);
-      socket.emit('addObject', stroke);
-    }
-
-    if (isDragging.current) {
-      socket.emit('moveObjects', selectedObjectIds, totalDelta.current);
-    }
-
-    // selects all objects bounded within selectionBox, if applicable
-    if (isSelecting.current && selectionBox.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      const box = selectionBox.current;
-
-      // first finds all objects within selectionBox, then returns ids
-      const selectedIds = objects
-        .filter((obj => {
-          const bounds = getObjectBounds(ctx, obj);
-
-          return !(
-            bounds.left > box.x + box.width ||
-            bounds.left + bounds.width < box.x ||
-            bounds.top > box.y + box.height ||
-            bounds.top + bounds.height < box.y
-          );
-        }))
-        .map(obj => obj.id);
-
-      setSelectedObjectIds(selectedIds);
-    }
-
-    isSelecting.current = false;
-    selectionBox.current = null;
-    isDrawing.current = false;
-    currentStrokeId.current = null;
-    isDragging.current = false;
-    totalDelta.current = { x: 0, y: 0 };
-  };
-
+  // unselected objects are rendered separately from selected ones
+  // selected objects are grouped into a Group to simplify modifications made to it
+  // hovered objects' boxes are only rendered when object is not a selected object
+  // (only one object may be hovered at once in this scenario)
+  // !editingText condition for hovered objects patches bug during transition 
+  // from select to edit text
   return (
-    <canvas
-      ref={canvasRef}
-      width={displayWidth}
-      height={displayHeight}
-      onMouseDown={handleClick}
-      onDoubleClick={handleDoubleClick}
-      onMouseMove={handleMove}
-      onMouseUp={handleLeave}
-      onMouseLeave={handleLeave}
-    />
-  );
-});
+    <div className="konva-canvas" style={{ position: 'relative', width: stageWidth, height: stageHeight }}>
+      <Stage
+        width={stageWidth}
+        height={stageHeight}
+        ref={stageRef}
+        onMouseDown={handleStageMouseDown}
+        onMouseMove={handleStageMouseMove}
+        onMouseUp={handleStageMouseUp}
+        onMouseLeave={handleStageMouseUp}
+        onTouchStart={handleStageMouseDown}
+        onTouchMove={handleStageMouseMove}
+        onTouchEnd={handleStageMouseUp}
+      >
+        <Layer>
+          {objects
+            .filter((object) => !selectedObjectIds.includes(object.id) && (!editingText || object.id !== editingText.id))
+            .map(renderObject)}
 
-export default Canvas;
+          {selectedObjectIds.length > 0 && (
+            <Group
+              draggable
+              ref={groupRef}
+              onDragStart={handleGroupDragStart}
+              onDragMove={handleGroupDragMove}
+              onDragEnd={handleGroupDragEnd}
+            >
+              {objects.filter(obj => selectedObjectIds.includes(obj.id)).map(renderObject)}
+            </Group>
+          )}
+
+          {tool === 'select' && !isDragging.current && renderSelectionsRect()}
+          {isDragging.current && renderSelectionsRect(true)}
+          {hoveredObjectIds && !editingText
+            && !selectedObjectIds.includes(hoveredObjectIds[0]) && renderHoverRect()}
+          {selectionBox && renderMarqueeRect()}
+        </Layer>
+      </Stage>
+    </div>
+  );
+}

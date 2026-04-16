@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './app.css';
@@ -10,6 +10,7 @@ import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
 
 export default function App() {
+  const stageRef = useRef(null);
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
   const [fontSize, setFontSize] = useState(16);
@@ -18,14 +19,12 @@ export default function App() {
   const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
   const [selectedObjectIds, setSelectedObjectIds] = useState([]);
-  const [hoveredObjectId, setHoveredObjectId] = useState(null);
+  const [hoveredObjectIds, setHoveredObjectIds] = useState([]);
   const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
-  const canvasRef = useRef();
 
   // clear screen function
   const handleClear = () => {
-    canvasRef.current.clear();
     setObjects([]);
     setSelectedObjectIds([]);
     socket.emit('clear');
@@ -146,7 +145,7 @@ export default function App() {
         />
         <div className="canvas-container">
           <Canvas
-            ref={canvasRef}
+            stageRef={stageRef}
             tool={tool}
             setTool={setTool}
             color={color}
@@ -157,14 +156,15 @@ export default function App() {
             setObjects={setObjects}
             selectedObjectIds={selectedObjectIds}
             setSelectedObjectIds={setSelectedObjectIds}
-            hoveredObjectId={hoveredObjectId}
-            setHoveredObjectId={setHoveredObjectId}
+            hoveredObjectIds={hoveredObjectIds}
+            setHoveredObjectIds={setHoveredObjectIds}
             editingText={editingText}
             setEditingText={setEditingText}
             setIsChangingText={setIsChangingText}
           />
           {tool === 'text' && editingText && (
             <Textbox
+              stageBox={stageRef.current.container().getBoundingClientRect()}
               objects={objects}
               setObjects={setObjects}
               editingText={editingText}
