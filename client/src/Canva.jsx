@@ -5,14 +5,13 @@ import './app.css';
 import { TextPath } from 'konva/lib/shapes/TextPath';
 import { Path } from 'konva/lib/shapes/Path';
 
-export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectId, setHoveredObjectId, editingText, setEditingText, setIsChangingText }) {
+export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectIds, setHoveredObjectIds, editingText, setEditingText, setIsChangingText }) {
   const groupRef = useRef(null);
   const isDrawing = useRef(false);
   const drawStart = useRef(null);
   const currentStrokeId = useRef(null);
   const isSelecting = useRef(false);
   const selectionStart = useRef(null);
-  const selectionRect = useRef(null);
   const isDragging = useRef(false);
   const dragStart = useRef(null);
   const [selectionBox, setSelectionBox] = useState(null);
@@ -79,7 +78,9 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   };
 
   const renderHoverRect = () => {
-    return renderSelectionRect(objects.find((item) => item.id === hoveredObjectId), false, false);
+    return objects
+      .filter(obj => hoveredObjectIds.includes(obj.id))
+      .map(obj => renderSelectionRect(obj, false, false));
   };
 
   const renderMarqueeRect = () => {
@@ -114,7 +115,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       setSelectedObjectIds([]);
       isSelecting.current = true;
       selectionStart.current = pointerPos;
-      selectionRect.current = { x, y, width: 0, height: 0 };
+      setSelectionBox({ x, y, width: 0, height: 0 });
     } else if (tool === 'text') {
       setTimeout(() => {
         setEditingText({
@@ -144,13 +145,16 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       }));
     } else if (tool === 'select' && isSelecting.current) {
       const start = selectionStart.current;
-      selectionRect.current = {
+      setSelectionBox({
         x: Math.min(start.x, x),
         y: Math.min(start.y, y),
         width: Math.abs(x - start.x),
         height: Math.abs(y - start.y)
-      };
-      setSelectionBox({ ...selectionRect.current });
+      });
+      setHoveredObjectIds(objects
+        .filter(obj => haveIntersection(getObjectBounds(obj), selectionBox))
+        .map(obj => obj.id)
+      );
     }
   };
 
@@ -159,16 +163,14 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       isDrawing.current = false;
       currentStrokeId.current = null;
     } else if (isSelecting.current) {
-      const box = selectionRect.current;
-      if (box.width || box.height) {
+      if (selectionBox.width || selectionBox.height) {
         const selected = objects.filter((obj) => {
           const objBox = getObjectBounds(obj);
-          return haveIntersection(objBox, box);
+          return haveIntersection(objBox, selectionBox);
         });
         setSelectedObjectIds(selected.map(obj => obj.id));
       }
       isSelecting.current = false;
-      selectionRect.current = null;
       setSelectionBox(null);
     }
   };
@@ -226,10 +228,10 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           onTap={(e) => handleObjectClick(object, e)}
           onMouseEnter={() => {
             if (tool === 'select') {
-              setHoveredObjectId(object.id);
+              setHoveredObjectIds([object.id]);
             }
           }}
-          onMouseLeave={() => setHoveredObjectId(null)}
+          onMouseLeave={() => setHoveredObjectIds([])}
         />
       );
     }
@@ -249,7 +251,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           onDblClick={() => {
             if (tool === 'select') {
               setSelectedObjectIds([]);
-              setHoveredObjectId(null);
+              setHoveredObjectIds([]);
               setIsChangingText(true);
               setEditingText({ ...object, y: object.y + object.fontSize * 0.5 });
               setTool('text');
@@ -257,10 +259,10 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           }}
           onMouseEnter={() => {
             if (tool === 'select') {
-              setHoveredObjectId(object.id);
+              setHoveredObjectIds([object.id]);
             }
           }}
-          onMouseLeave={() => setHoveredObjectId(null)}
+          onMouseLeave={() => setHoveredObjectIds([])}
         />
       );
     }
@@ -306,8 +308,8 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
           {tool === 'select' && !isDragging.current && renderSelectionsRect()}
           {isDragging.current && renderSelectionsRect(true)}
-          {hoveredObjectId && !editingText && !isSelecting.current
-            && !selectedObjectIds.includes(hoveredObjectId) && renderHoverRect()}
+          {hoveredObjectIds && !editingText
+            && !selectedObjectIds.includes(hoveredObjectIds[0]) && renderHoverRect()}
           {selectionBox && renderMarqueeRect()}
         </Layer>
       </Stage>

@@ -19,7 +19,7 @@ export default function App() {
   const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
   const [selectedObjectIds, setSelectedObjectIds] = useState([]);
-  const [hoveredObjectId, setHoveredObjectId] = useState(null);
+  const [hoveredObjectIds, setHoveredObjectIds] = useState([]);
   const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
 
@@ -149,8 +149,8 @@ export default function App() {
             setObjects={setObjects}
             selectedObjectIds={selectedObjectIds}
             setSelectedObjectIds={setSelectedObjectIds}
-            hoveredObjectId={hoveredObjectId}
-            setHoveredObjectId={setHoveredObjectId}
+            hoveredObjectIds={hoveredObjectIds}
+            setHoveredObjectIds={setHoveredObjectIds}
             editingText={editingText}
             setEditingText={setEditingText}
             setIsChangingText={setIsChangingText}
