@@ -15,6 +15,10 @@ export default function Toolbar({ tool, setTool, handleClear }) {
                 onClick={() => setTool("text")}>
                 T
             </button>
+            <button className={tool === "line" ? "active" : ""}
+                onClick={() => setTool("line")}>
+                L
+            </button>
             <button className="clear"
                 onClick={handleClear}>
                 🗑️

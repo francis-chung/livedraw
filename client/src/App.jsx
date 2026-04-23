@@ -15,6 +15,8 @@ export default function App() {
   const [brushSize, setBrushSize] = useState(2);
   const [fontSize, setFontSize] = useState(16);
   const [textColor, setTextColor] = useState('#000000');
+  const [lineSize, setLineSize] = useState(2);
+  const [lineColor, setLineColor] = useState('#000000');
   const [tool, setTool] = useState('draw');
   const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
@@ -130,6 +132,14 @@ export default function App() {
           setInteractingWithTextbar={setInteractingWithTextbar}
         />
       )}
+      {tool === 'line' && (
+        <Drawbar
+          color={lineColor}
+          setColor={setLineColor}
+          brushSize={lineSize}
+          setBrushSize={setLineSize}
+        />
+      )}
       <div className="canvas-tools">
         <Toolbar
           tool={tool}
@@ -145,6 +155,8 @@ export default function App() {
             brushSize={brushSize}
             fontSize={fontSize}
             textColor={textColor}
+            lineSize={lineSize}
+            lineColor={lineColor}
             objects={objects}
             setObjects={setObjects}
             selectedObjectIds={selectedObjectIds}

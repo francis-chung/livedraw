@@ -3,7 +3,7 @@
 .toolbar {
     grid-column: 1;
     width: 60px;
-    height: 200px;
+    min-height: 100px;
     display: flex;
     flex-direction: column;
     align-items: center;
