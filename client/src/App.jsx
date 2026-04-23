@@ -87,6 +87,8 @@ export default function App() {
       setSelectedObjectIds([]);
     });
 
+    socket.connect();
+
     return () => {
       socket.off('loadState');
       socket.off('addObject');
