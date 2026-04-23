@@ -1,10 +1,11 @@
 import { Line } from 'react-konva'
 
-export default function LineObject({ object, getFlatPoints, handleObjectClick, setHoveredObjectIds, tool }) {
+export default function LineObject({ object, getFlatPoints, handleObjectClick, setHoveredObjectIds, tool, fadedOpacity }) {
     return (
         <Line
             points={getFlatPoints(object)}
             stroke={object.color}
+            opacity={fadedOpacity ? 0.5 : 1}
             strokeWidth={object.width}
             hitStrokeWidth={object.width + 10}
             lineCap="round"

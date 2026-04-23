@@ -29,7 +29,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   };
 
   const getObjectBounds = (object) => {
-    if (object.type === 'stroke') {
+    if (object.type === 'stroke' || object.type === 'line') {
       const points = getFlatPoints(object);
       const xs = points.filter((_, index) => index % 2 === 0);
       const ys = points.filter((_, index) => index % 2 === 1);
@@ -92,9 +92,9 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     return renderSelectionRect(box, false, true);
   };
 
-  const handleStageMouseDown = (e) => {
+  const handleStageMouseDown = (e, redir = false) => {
     const clickedOnEmpty = e.target === e.target.getStage();
-    if (!clickedOnEmpty) return;
+    if (!clickedOnEmpty && !redir) return;
 
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
@@ -206,9 +206,14 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   const handleObjectClick = (object, e) => {
     if (tool === 'select') {
       setSelectedObjectIds([object.id]);
-    } else if (tool === 'line') {
+      setHoveredObjectIds([]);
+    } else if (tool === 'line' && object.id === currentStrokeId.current) {
+      const line = objects.find(obj => obj.id === currentStrokeId.current);
+      socket.emit('addObject', line);
       isLining.current = false;
       currentStrokeId.current = null;
+    } else {
+      handleStageMouseDown(e, true);
     }
   };
 
@@ -252,6 +257,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           handleObjectClick={handleObjectClick}
           setHoveredObjectIds={setHoveredObjectIds}
           tool={tool}
+          fadedOpacity={isLining.current && object.id === currentStrokeId.current}
         />
       );
     }
