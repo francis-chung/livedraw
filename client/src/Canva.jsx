@@ -4,10 +4,12 @@ import socket from './socket.js';
 import './app.css';
 import { TextPath } from 'konva/lib/shapes/TextPath';
 import { Path } from 'konva/lib/shapes/Path';
+import LineObject from './LineObject.jsx';
+import TextObject from './TextObject.jsx';
 
-// useRef: similar to useState, but does not cause a screen re-render
-// only for when data not shown on-screen is modified 
-export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectIds, setHoveredObjectIds, editingText, setEditingText, setIsChangingText }) {
+export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, lineSize, lineColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectIds, setHoveredObjectIds, editingText, setEditingText, setIsChangingText }) {
+  // useRef: similar to useState, but does not cause a screen re-render
+  // only for when data not shown on-screen is modified   
   const groupRef = useRef(null);
   const isDrawing = useRef(false);
   const drawStart = useRef(null);
@@ -16,6 +18,8 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   const selectionStart = useRef(null);
   const isDragging = useRef(false);
   const dragStart = useRef(null);
+  const isLining = useRef(null);
+  const lineStart = useRef(null);
   const [selectionBox, setSelectionBox] = useState(null);
   const [dragPos, setDragPos] = useState(null);
 
@@ -30,7 +34,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
   // creates bounding boxes for any type of object
   const getObjectBounds = (object) => {
-    if (object.type === 'stroke') {
+    if (object.type === 'stroke' || object.type === 'line') {
       const points = getFlatPoints(object);
       // processes flat points based on even/odd index positions
       const xs = points.filter((_, index) => index % 2 === 0);
@@ -114,10 +118,11 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     return renderSelectionRect(box, false, true);
   };
 
-  const handleStageMouseDown = (e) => {
-    // ensures the stage is clicked, not any other object on top of it
+  // redir: when an object is clicked but no interaction with it is expected
+  const handleStageMouseDown = (e, redir = false) => {
+    // ensures the stage is clicked, not any other object on top of it    
     const clickedOnEmpty = e.target === e.target.getStage();
-    if (!clickedOnEmpty) return;
+    if (!clickedOnEmpty && !redir) return;
 
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
@@ -163,6 +168,22 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           fontSize,
         });
       }, 0);
+    } else if (tool === 'line') {
+      if (!isLining.current) {
+        isLining.current = true;
+        const line = {
+          id: crypto.randomUUID(),
+          type: 'line',
+          x,
+          y,
+          color: lineColor,
+          width: lineSize,
+          points: [{ x: 0, y: 0 }]
+        }
+        setObjects((prev) => [...prev, line]);
+        currentStrokeId.current = line.id;
+        lineStart.current = { x, y };
+      }
     }
   };
 
@@ -198,6 +219,12 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
         .filter(obj => haveIntersection(getObjectBounds(obj), selectionBox))
         .map(obj => obj.id)
       );
+    } else if (tool === 'line' && isLining.current) {
+      const { x: startX, y: startY } = lineStart.current;
+      setObjects((prev) => prev.map((obj) => {
+        if (obj.id !== currentStrokeId.current) return obj;
+        return { ...obj, points: [{ x: 0, y: 0 }, { x: x - startX, y: y - startY }] };
+      }))
     }
   };
 
@@ -228,9 +255,14 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   const handleObjectClick = (object, e) => {
     if (tool === 'select') {
       setSelectedObjectIds([object.id]);
-      // prevents higher objects (e.g. stage) from detecting click
-      // NOTE: likely not necessary, since stage already has guards against it
-      e.cancelBubble = true;
+      setHoveredObjectIds([]);
+    } else if (tool === 'line' && object.id === currentStrokeId.current) {
+      const line = objects.find(obj => obj.id === currentStrokeId.current);
+      socket.emit('addObject', line);
+      isLining.current = false;
+      currentStrokeId.current = null;
+    } else { // automatically redirects to clicking the stage
+      handleStageMouseDown(e, true);
     }
   };
 
@@ -267,57 +299,32 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   };
 
   const renderObject = (object) => {
-    if (object.type === 'stroke') {
+    if (object.type === 'stroke' || object.type === 'line') {
       return (
-        <Line
+        <LineObject
           key={object.id}
-          points={getFlatPoints(object)}
-          stroke={object.color}
-          strokeWidth={object.width}
-          hitStrokeWidth={object.width + 10}
-          lineCap="round"
-          lineJoin="round"
-          tension={0.3}
-          onClick={(e) => handleObjectClick(object, e)}
-          onTap={(e) => handleObjectClick(object, e)}
-          onMouseEnter={() => {
-            if (tool === 'select') {
-              setHoveredObjectIds([object.id]);
-            }
-          }}
-          onMouseLeave={() => setHoveredObjectIds([])}
+          object={object}
+          getFlatPoints={getFlatPoints}
+          handleObjectClick={handleObjectClick}
+          setHoveredObjectIds={setHoveredObjectIds}
+          tool={tool}
+          fadedOpacity={isLining.current && object.id === currentStrokeId.current}
         />
       );
     }
 
     if (object.type === 'text') {
       return (
-        <Text
+        <TextObject
           key={object.id}
-          text={object.value || ''}
-          x={object.x}
-          y={object.y}
-          fontSize={object.fontSize}
-          lineHeight={1.2}
-          fill={object.textColor}
-          onClick={(e) => handleObjectClick(object, e)}
-          onTap={(e) => handleObjectClick(object, e)}
-          onDblClick={() => {
-            if (tool === 'select') {
-              // opens text edit option and changes tool to text
-              setSelectedObjectIds([]);
-              setHoveredObjectIds([]);
-              setIsChangingText(true);
-              setEditingText({ ...object, y: object.y + object.fontSize * 0.5 });
-              setTool('text');
-            }
-          }}
-          onMouseEnter={() => {
-            if (tool === 'select') {
-              setHoveredObjectIds([object.id]);
-            }
-          }}
-          onMouseLeave={() => setHoveredObjectIds([])}
+          object={object}
+          handleObjectClick={handleObjectClick}
+          setSelectedObjectIds={setSelectedObjectIds}
+          setHoveredObjectIds={setHoveredObjectIds}
+          setIsChangingText={setIsChangingText}
+          setEditingText={setEditingText}
+          tool={tool}
+          setTool={setTool}
         />
       );
     }

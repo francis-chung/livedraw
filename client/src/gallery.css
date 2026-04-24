@@ -1,0 +1,59 @@
+.gallery {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+}
+
+.gallery-header h1 {
+  margin: 0;
+}
+
+.gallery-content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.canvas-list {
+  display: grid;
+  /* defines number of columns and widths
+  repeat generates multiple columns, auto-fill creates as many columns as can fit
+  in container (may create empty columns with extra space),
+  minimum size 200px and maximum 1x fraction of remaining space */
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.canvas-item {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  background-color: #fff;
+}
+
+.canvas-item h3 {
+  margin: 0 0 1rem 0;
+}
+
+.canvas-item button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.canvas-item button:hover {
+  background-color: #0056b3;
+}

@@ -1,5 +1,7 @@
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:3001');
+// autoconnect disabled so that event listeners are set up
+// before socket connects, and canvas loads properly on setup
+const socket = io('http://localhost:3001', { autoConnect: false });
 
 export default socket;

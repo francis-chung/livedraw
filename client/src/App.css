@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'Inter';
-  src: url('../node_modules/@fontsource/inter');
+  src: url('../node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2');
   font-weight: normal;
 }
 

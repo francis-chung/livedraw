@@ -1,6 +1,6 @@
 import './toolbar.css';
 
-export default function Toolbar({ tool, setTool, handleClear }) {
+export default function Toolbar({ tool, setTool, handleClear, handleSave }) {
     return (
         <div className="toolbar">
             <button className={tool === "draw" ? "active" : ""}
@@ -15,9 +15,17 @@ export default function Toolbar({ tool, setTool, handleClear }) {
                 onClick={() => setTool("text")}>
                 T
             </button>
+            <button className={tool === "line" ? "active" : ""}
+                onClick={() => setTool("line")}>
+                L
+            </button>
             <button className="clear"
                 onClick={handleClear}>
                 🗑️
+            </button>
+            <button className="save"
+                onClick={handleSave}>
+                💾
             </button>
         </div>
     );
