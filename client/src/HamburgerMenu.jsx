@@ -2,7 +2,7 @@ import { useState } from 'react';
 import './hamburgerMenu.css';
 import DarkMode from './DarkMode.jsx';
 
-export default function HamburgerMenu() {
+export default function HamburgerMenu({ onGalleryClick }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
 
@@ -17,6 +17,11 @@ export default function HamburgerMenu() {
             setIsClosing(false);
             setIsOpen(false);
         }, 250);
+    };
+
+    const handleGalleryClick = () => {
+        onGalleryClick();
+        closeSidebar();
     };
 
     return (
@@ -50,6 +55,9 @@ export default function HamburgerMenu() {
                         <div className="sidebar-settings">
                             <h3>Settings</h3>
                             <DarkMode />
+                            <button className="gallery-button" onClick={handleGalleryClick}>
+                                🖼️ Gallery
+                            </button>
                         </div>
                     </aside>
                 </>

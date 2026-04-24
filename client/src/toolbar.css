@@ -46,3 +46,13 @@
 .toolbar button.clear:hover {
     background-color: #c82333;
 }
+
+.toolbar button.save {
+    background-color: #28a745;
+    color: white;
+    box-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar button.save:hover {
+    background-color: #218838;
+}

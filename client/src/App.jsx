@@ -8,6 +8,7 @@ import Selectbar from './Selectbar.jsx';
 import Textbar from './Textbar.jsx';
 import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
+import Gallery from './Gallery.jsx';
 
 export default function App() {
   const stageRef = useRef(null);
@@ -24,11 +25,23 @@ export default function App() {
   const [hoveredObjectIds, setHoveredObjectIds] = useState([]);
   const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
+  const [currentView, setCurrentView] = useState('canvas'); // 'canvas' or 'gallery'
 
   const handleClear = () => {
     setObjects([]);
     setSelectedObjectIds([]);
     socket.emit('clear');
+  };
+
+  const handleSave = () => {
+    const name = prompt('Enter a name for this canvas:');
+    if (name) {
+      socket.emit('saveCanvas', name);
+    }
+  };
+
+  const handleGalleryClick = () => {
+    setCurrentView('gallery');
   };
 
   const deleteObjects = (objectIds) => {
@@ -87,6 +100,18 @@ export default function App() {
       setSelectedObjectIds([]);
     });
 
+    socket.on('canvasSaved', ({ name, fileName }) => {
+      alert(`Canvas "${name}" saved successfully!`);
+    });
+
+    socket.on('saveError', (error) => {
+      alert(`Error saving canvas: ${error}`);
+    });
+
+    socket.on('loadError', (error) => {
+      alert(`Error loading canvas: ${error}`);
+    });
+
     socket.connect();
 
     return () => {
@@ -107,82 +132,89 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <h1>Livedraw</h1>
-        <HamburgerMenu />
-      </header>
-      {tool === 'draw' && (
-        <Drawbar
-          color={color}
-          setColor={setColor}
-          brushSize={brushSize}
-          setBrushSize={setBrushSize}
-        />
-      )}
-      {tool === 'select' && (
-        <Selectbar
-          selectedObjectIds={selectedObjectIds}
-          deleteObjects={deleteObjects}
-        />
-      )}
-      {tool === 'text' && (
-        <Textbar
-          fontSize={fontSize}
-          setFontSize={setFontSize}
-          textColor={textColor}
-          setTextColor={setTextColor}
-          setInteractingWithTextbar={setInteractingWithTextbar}
-        />
-      )}
-      {tool === 'line' && (
-        <Drawbar
-          color={lineColor}
-          setColor={setLineColor}
-          brushSize={lineSize}
-          setBrushSize={setLineSize}
-        />
-      )}
-      <div className="canvas-tools">
-        <Toolbar
-          tool={tool}
-          setTool={setTool}
-          handleClear={handleClear}
-        />
-        <div className="canvas-container">
-          <Canvas
-            stageRef={stageRef}
-            tool={tool}
-            setTool={setTool}
-            color={color}
-            brushSize={brushSize}
-            fontSize={fontSize}
-            textColor={textColor}
-            lineSize={lineSize}
-            lineColor={lineColor}
-            objects={objects}
-            setObjects={setObjects}
-            selectedObjectIds={selectedObjectIds}
-            setSelectedObjectIds={setSelectedObjectIds}
-            hoveredObjectIds={hoveredObjectIds}
-            setHoveredObjectIds={setHoveredObjectIds}
-            editingText={editingText}
-            setEditingText={setEditingText}
-            setIsChangingText={setIsChangingText}
-          />
-          {tool === 'text' && editingText && (
-            <Textbox
-              stageBox={stageRef.current.container().getBoundingClientRect()}
-              objects={objects}
-              setObjects={setObjects}
-              editingText={editingText}
-              setEditingText={setEditingText}
-              isChangingText={isChangingText}
-              setIsChangingText={setIsChangingText}
-              interactingWithTextbar={interactingWithTextbar}
+      {currentView === 'gallery' ? (
+        <Gallery setCurrentView={setCurrentView} />
+      ) : (
+        <>
+          <header className="header">
+            <h1>Livedraw</h1>
+            <HamburgerMenu onGalleryClick={handleGalleryClick} />
+          </header>
+          {tool === 'draw' && (
+            <Drawbar
+              color={color}
+              setColor={setColor}
+              brushSize={brushSize}
+              setBrushSize={setBrushSize}
             />
           )}
-        </div>
-      </div>
+          {tool === 'select' && (
+            <Selectbar
+              selectedObjectIds={selectedObjectIds}
+              deleteObjects={deleteObjects}
+            />
+          )}
+          {tool === 'text' && (
+            <Textbar
+              fontSize={fontSize}
+              setFontSize={setFontSize}
+              textColor={textColor}
+              setTextColor={setTextColor}
+              setInteractingWithTextbar={setInteractingWithTextbar}
+            />
+          )}
+          {tool === 'line' && (
+            <Drawbar
+              color={lineColor}
+              setColor={setLineColor}
+              brushSize={lineSize}
+              setBrushSize={setLineSize}
+            />
+          )}
+          <div className="canvas-tools">
+            <Toolbar
+              tool={tool}
+              setTool={setTool}
+              handleClear={handleClear}
+              handleSave={handleSave}
+            />
+            <div className="canvas-container">
+              <Canvas
+                stageRef={stageRef}
+                tool={tool}
+                setTool={setTool}
+                color={color}
+                brushSize={brushSize}
+                fontSize={fontSize}
+                textColor={textColor}
+                lineSize={lineSize}
+                lineColor={lineColor}
+                objects={objects}
+                setObjects={setObjects}
+                selectedObjectIds={selectedObjectIds}
+                setSelectedObjectIds={setSelectedObjectIds}
+                hoveredObjectIds={hoveredObjectIds}
+                setHoveredObjectIds={setHoveredObjectIds}
+                editingText={editingText}
+                setEditingText={setEditingText}
+                setIsChangingText={setIsChangingText}
+              />
+              {tool === 'text' && editingText && (
+                <Textbox
+                  stageBox={stageRef.current.container().getBoundingClientRect()}
+                  objects={objects}
+                  setObjects={setObjects}
+                  editingText={editingText}
+                  setEditingText={setEditingText}
+                  isChangingText={isChangingText}
+                  setIsChangingText={setIsChangingText}
+                  interactingWithTextbar={interactingWithTextbar}
+                />
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

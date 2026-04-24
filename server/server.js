@@ -1,9 +1,13 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+
+const PORT = process.env.PORT || 3001;
 
 const io = new Server(server, {
     cors: {
@@ -13,6 +17,39 @@ const io = new Server(server, {
 });
 
 let objects = [];
+const SAVES_DIR = path.join(__dirname, 'saves');
+
+// Ensure saves directory exists
+if (!fs.existsSync(SAVES_DIR)) {
+    fs.mkdirSync(SAVES_DIR);
+}
+
+// Function to save canvas
+function saveCanvas(name) {
+    const fileName = `${name}.json`;
+    const filePath = path.join(SAVES_DIR, fileName);
+    const data = JSON.stringify(objects, null, 2);
+    fs.writeFileSync(filePath, data);
+    return fileName;
+}
+
+// Function to load canvas
+function loadCanvas(name) {
+    const fileName = `${name}.json`;
+    const filePath = path.join(SAVES_DIR, fileName);
+    if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath, 'utf8');
+        objects = JSON.parse(data);
+        return objects;
+    }
+    return null;
+}
+
+// Function to get list of saved canvases
+function getSavedCanvases() {
+    const files = fs.readdirSync(SAVES_DIR);
+    return files.filter(file => file.endsWith('.json')).map(file => file.replace('.json', ''));
+}
 
 io.on('connection', (socket) => {
     console.log('a user connected on: ', socket.id);
@@ -68,9 +105,47 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('clear');
     });
 
+    socket.on('saveCanvas', (name) => {
+        try {
+            const fileName = saveCanvas(name);
+            socket.emit('canvasSaved', { name, fileName });
+            console.log(`Canvas saved as ${fileName}`);
+        } catch (error) {
+            socket.emit('saveError', error.message);
+        }
+    });
+
+    socket.on('loadCanvas', (name) => {
+        try {
+            const loadedObjects = loadCanvas(name);
+            if (loadedObjects !== null) {
+                objects = loadedObjects;
+                io.emit('loadState', { objects });
+                console.log(`Canvas ${name} loaded`);
+            } else {
+                socket.emit('loadError', `Canvas ${name} not found`);
+            }
+        } catch (error) {
+            socket.emit('loadError', error.message);
+        }
+    });
+
+    socket.on('getSavedCanvases', () => {
+        const canvases = getSavedCanvases();
+        socket.emit('savedCanvases', canvases);
+    });
+
     socket.on('disconnect', () => {
         console.log('user disconnected: ', socket.id);
     });
 });
 
-server.listen(3001, () => console.log('server running on port 3001'));
+server.listen(PORT, () => console.log(`server running on port ${PORT}`));
+
+server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Try stopping the other process or set PORT to a different value.`);
+        process.exit(1);
+    }
+    throw error;
+});
