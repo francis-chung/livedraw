@@ -25,7 +25,8 @@ export default function App() {
   const [hoveredObjectIds, setHoveredObjectIds] = useState([]);
   const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
-  const [currentView, setCurrentView] = useState('canvas'); // 'canvas' or 'gallery'
+  const [currentView, setCurrentView] = useState('canvas');
+  const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
 
   const handleClear = () => {
     setObjects([]);
@@ -41,6 +42,7 @@ export default function App() {
   };
 
   const handleGalleryClick = () => {
+    handleSave();
     setCurrentView('gallery');
   };
 
@@ -53,8 +55,13 @@ export default function App() {
   useEffect(() => {
     document.body.classList.remove('preload');
 
-    socket.on('loadState', ({ objects: serverObjects }) => {
+    console.log("check");
+
+    socket.on('loadState', ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
+      if (name) {
+        setCurrentDrawingTitle(name);
+      }
     });
 
     socket.on('addObject', (object) => {
@@ -102,6 +109,7 @@ export default function App() {
 
     socket.on('canvasSaved', ({ name, fileName }) => {
       alert(`Canvas "${name}" saved successfully!`);
+      setCurrentDrawingTitle(name);
     });
 
     socket.on('saveError', (error) => {
@@ -121,14 +129,13 @@ export default function App() {
       socket.off('deleteObjects');
       socket.off('clear');
     };
-  }, [setObjects, setSelectedObjectIds]);
+  }, []);
 
   useEffect(() => {
     if (editingText) {
       setEditingText(prev => ({ ...prev, fontSize, textColor }));
     }
   }, [fontSize, textColor]);
-
 
   return (
     <div className="app">
@@ -137,7 +144,7 @@ export default function App() {
       ) : (
         <>
           <header className="header">
-            <h1>Livedraw</h1>
+            <h1>{currentDrawingTitle}</h1>
             <HamburgerMenu onGalleryClick={handleGalleryClick} />
           </header>
           {tool === 'draw' && (

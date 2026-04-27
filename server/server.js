@@ -19,12 +19,10 @@ const io = new Server(server, {
 let objects = [];
 const SAVES_DIR = path.join(__dirname, 'saves');
 
-// Ensure saves directory exists
 if (!fs.existsSync(SAVES_DIR)) {
     fs.mkdirSync(SAVES_DIR);
 }
 
-// Function to save canvas
 function saveCanvas(name) {
     const fileName = `${name}.json`;
     const filePath = path.join(SAVES_DIR, fileName);
@@ -33,7 +31,6 @@ function saveCanvas(name) {
     return fileName;
 }
 
-// Function to load canvas
 function loadCanvas(name) {
     const fileName = `${name}.json`;
     const filePath = path.join(SAVES_DIR, fileName);
@@ -45,10 +42,19 @@ function loadCanvas(name) {
     return null;
 }
 
-// Function to get list of saved canvases
 function getSavedCanvases() {
     const files = fs.readdirSync(SAVES_DIR);
     return files.filter(file => file.endsWith('.json')).map(file => file.replace('.json', ''));
+}
+
+function deleteCanvas(name) {
+    const fileName = `${name}.json`;
+    const filePath = path.join(SAVES_DIR, fileName);
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        return true;
+    }
+    throw new Error(`Canvas ${name} not found`);
 }
 
 io.on('connection', (socket) => {
@@ -120,7 +126,7 @@ io.on('connection', (socket) => {
             const loadedObjects = loadCanvas(name);
             if (loadedObjects !== null) {
                 objects = loadedObjects;
-                io.emit('loadState', { objects });
+                io.emit('loadState', { objects, name });
                 console.log(`Canvas ${name} loaded`);
             } else {
                 socket.emit('loadError', `Canvas ${name} not found`);
@@ -133,6 +139,17 @@ io.on('connection', (socket) => {
     socket.on('getSavedCanvases', () => {
         const canvases = getSavedCanvases();
         socket.emit('savedCanvases', canvases);
+    });
+
+    socket.on('deleteCanvas', (name) => {
+        try {
+            deleteCanvas(name);
+            io.emit('canvasDeleted', name);
+            io.emit('savedCanvases', getSavedCanvases());
+            console.log(`Canvas ${name} deleted`);
+        } catch (error) {
+            socket.emit('deleteError', error.message);
+        }
     });
 
     socket.on('disconnect', () => {

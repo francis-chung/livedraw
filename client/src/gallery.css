@@ -5,8 +5,9 @@
 }
 
 .gallery-header {
+  position: relative;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   padding: 1rem;
   background-color: #f5f5f5;
@@ -15,6 +16,14 @@
 
 .gallery-header h1 {
   margin: 0;
+  text-align: center;
+}
+
+.gallery-header button {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .gallery-content {
@@ -25,8 +34,14 @@
 
 .canvas-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 1rem;
+}
+
+@media (max-width: 720px) {
+  .canvas-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .canvas-item {
@@ -41,8 +56,13 @@
   margin: 0 0 1rem 0;
 }
 
+.canvas-item .buttons {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
 .canvas-item button {
-  background-color: #007bff;
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -50,6 +70,34 @@
   cursor: pointer;
 }
 
-.canvas-item button:hover {
+.canvas-item button.load {
+  background-color: #007bff;
+}
+
+.canvas-item button.load:hover {
   background-color: #0056b3;
+}
+
+.canvas-item button.delete {
+  background-color: #dc3545;
+}
+
+.canvas-item button.delete:hover {
+  background-color: #c82333;
+}
+
+.gallery-header button {
+  background-color: #28a745;
+  color: #fff;
+  font-size: 24;
+  font-weight: bold;
+  border: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.gallery-header button:hover {
+  background-color: #218838;
 }
