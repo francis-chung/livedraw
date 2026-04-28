@@ -24,7 +24,7 @@ export default function Toolbar({ tool, setTool, handleClear, handleSave }) {
                 🗑️
             </button>
             <button className="save"
-                onClick={handleSave}>
+                onClick={() => handleSave(false)}>
                 💾
             </button>
         </div>

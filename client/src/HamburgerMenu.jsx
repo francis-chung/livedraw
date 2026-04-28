@@ -22,11 +22,6 @@ export default function HamburgerMenu({ onGalleryClick }) {
         }, 250);
     };
 
-    const handleGalleryClick = () => {
-        onGalleryClick();
-        closeSidebar();
-    };
-
     return (
         <div className="hamburger-container">
             <button
@@ -58,7 +53,7 @@ export default function HamburgerMenu({ onGalleryClick }) {
                         <div className="sidebar-settings">
                             <h3>Settings</h3>
                             <DarkMode />
-                            <button className="gallery-button" onClick={handleGalleryClick}>
+                            <button className="gallery-button" onClick={onGalleryClick}>
                                 🖼️ Gallery
                             </button>
                         </div>

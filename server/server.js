@@ -29,8 +29,10 @@ const io = new Server(server, {
     }
 });
 
-// stores state on the server
-let objects = [];
+// list of objects from different canvases
+// used as a map, with canvas names as keys and objects as values
+const canvasStates = {};
+
 // builds path to folder named saves
 // __dirname: directory of file
 // path.join ensures correct separators based on OS
@@ -43,8 +45,35 @@ if (!fs.existsSync(SAVES_DIR)) {
     fs.mkdirSync(SAVES_DIR);
 }
 
+// returns all objects of a specific canvas
+function getCanvasState(name) {
+    if (!canvasStates[name]) {
+        canvasStates[name] = [];
+    }
+    return canvasStates[name];
+}
+
+function leaveCurrentCanvas(socket) {
+    if (socket.currentRoom) {
+        socket.leave(socket.currentRoom);
+        socket.currentRoom = null;
+        socket.currentCanvas = null;
+    }
+}
+
+function joinCanvas(socket, name) {
+    // ensures that any previous canvas is left before joining a new one
+    leaveCurrentCanvas(socket);
+    // type-prefixed custom for room naming
+    const room = `canvas:${name}`;
+    socket.join(room);
+    socket.currentRoom = room;
+    socket.currentCanvas = name;
+    return getCanvasState(name);
+}
+
 // saves canvas data as JSON file
-function saveCanvas(name) {
+function saveCanvas(name, objects) {
     const fileName = `${name}.json`;
     const filePath = path.join(SAVES_DIR, fileName);
     // converts objects into JSON with indentation formatting
@@ -62,8 +91,9 @@ function loadCanvas(name) {
     if (fs.existsSync(filePath)) {
         // reads content files as a string
         const data = fs.readFileSync(filePath, 'utf8');
-        objects = JSON.parse(data);
-        return objects;
+        const loadedObjects = JSON.parse(data);
+        canvasStates[name] = loadedObjects;
+        return loadedObjects;
     }
     return null;
 }
@@ -74,33 +104,52 @@ function getSavedCanvases() {
     return files.filter(file => file.endsWith('.json')).map(file => file.replace('.json', ''));
 }
 
+function deleteCanvas(name) {
+    const fileName = `${name}.json`;
+    const filePath = path.join(SAVES_DIR, fileName);
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        return true;
+    }
+    throw new Error(`Canvas ${name} not found`);
+}
+
 // once connection is established, activate socket emitters and listeners
 // runs on every connection being made
 io.on('connection', (socket) => {
     console.log('a user connected on: ', socket.id);
+    socket.currentCanvas = null;
+    socket.currentRoom = null;
 
     // emits current state of canvas
     socket.emit('loadState', {
-        objects
+        objects: []
     });
 
-    // waits for this client to send data, then broadcasts to everyone else    
+    // waits for this client to send data, then broadcasts to everyone else
+    // for each of the following connections, objects must be accessed
+    // from the correct room
     socket.on('addObject', (object) => {
+        if (!socket.currentCanvas) return;
+        const objects = getCanvasState(socket.currentCanvas);
         objects.push(object);
-        socket.broadcast.emit('addObject', object);
+        socket.to(socket.currentRoom).emit('addObject', object);
     });
 
     socket.on('updateObject', (object) => {
-        objects = objects.map(obj =>
+        if (!socket.currentCanvas) return;
+        const objects = getCanvasState(socket.currentCanvas);
+        canvasStates[socket.currentCanvas] = objects.map(obj =>
             obj.id === object.id ? object : obj
         );
-        socket.broadcast.emit('updateObject', object);
-    })
+        socket.to(socket.currentRoom).emit('updateObject', object);
+    });
 
     socket.on('moveObjects', (ids, dp) => {
-        const idSet = new Set(ids);
-        objects = objects.map((obj) => {
-            if (!idSet.has(obj.id)) return obj;
+        if (!socket.currentCanvas) return;
+        const objects = getCanvasState(socket.currentCanvas);
+        canvasStates[socket.currentCanvas] = objects.map((obj) => {
+            if (!ids.includes(obj.id)) return obj;
             if (obj.type === 'stroke') {
                 return {
                     ...obj,
@@ -119,23 +168,29 @@ io.on('connection', (socket) => {
             }
             return obj;
         });
-        socket.broadcast.emit('moveObjects', ids, dp);
+        socket.to(socket.currentRoom).emit('moveObjects', ids, dp);
     });
 
     socket.on('deleteObjects', (ids) => {
-        objects = objects.filter((obj) => !ids.includes(obj.id));
-        socket.broadcast.emit('deleteObjects', ids);
+        if (!socket.currentCanvas) return;
+        const objects = getCanvasState(socket.currentCanvas);
+        canvasStates[socket.currentCanvas] = objects.filter((obj) => !ids.includes(obj.id));
+        socket.to(socket.currentRoom).emit('deleteObjects', ids);
     });
 
     socket.on('clear', () => {
-        objects = [];
-        socket.broadcast.emit('clear');
+        if (!socket.currentCanvas) return;
+        canvasStates[socket.currentCanvas] = [];
+        socket.to(socket.currentRoom).emit('clear');
     });
 
-    socket.on('saveCanvas', (name) => {
+    socket.on('saveCanvas', ({ name, objects: clientObjects }) => {
         try {
-            const fileName = saveCanvas(name);
-            // only sends a response to the requesting client
+            // returns first truthy value in the list
+            const objectsToSave = clientObjects || canvasStates[name] || [];
+            canvasStates[name] = objectsToSave;
+            const fileName = saveCanvas(name, objectsToSave);
+            // only sends a response to the requesting client            
             socket.emit('canvasSaved', { name, fileName });
             console.log(`Canvas saved as ${fileName}`);
         } catch (error) {
@@ -147,10 +202,10 @@ io.on('connection', (socket) => {
         try {
             const loadedObjects = loadCanvas(name);
             if (loadedObjects !== null) {
-                objects = loadedObjects;
-                // broadcasts to all clients to ensure everyone syncs properly
-                io.emit('loadState', { objects });
-                console.log(`Canvas ${name} loaded`);
+                joinCanvas(socket, name);
+                // only loads the state of the client that sent the request
+                socket.emit('loadState', { objects: loadedObjects, name });
+                console.log(`Canvas ${name} loaded in room ${socket.currentRoom}`);
             } else {
                 socket.emit('loadError', `Canvas ${name} not found`);
             }
@@ -159,9 +214,26 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('leaveCanvas', () => {
+        leaveCurrentCanvas(socket);
+    });
+
     socket.on('getSavedCanvases', () => {
         const canvases = getSavedCanvases();
         socket.emit('savedCanvases', canvases);
+    });
+
+    socket.on('deleteCanvas', (name) => {
+        try {
+            deleteCanvas(name);
+            // NOTE: canvasDeleted should not be broadcasted to everyone
+            // but updated list of canvases should
+            io.emit('canvasDeleted', name);
+            io.emit('savedCanvases', getSavedCanvases());
+            console.log(`Canvas ${name} deleted`);
+        } catch (error) {
+            socket.emit('deleteError', error.message);
+        }
     });
 
     socket.on('disconnect', () => {

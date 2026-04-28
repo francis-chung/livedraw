@@ -25,7 +25,10 @@ export default function App() {
   const [hoveredObjectIds, setHoveredObjectIds] = useState([]);
   const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
-  const [currentView, setCurrentView] = useState('canvas');
+  const [currentView, setCurrentView] = useState('gallery');
+  const [currentCanvasName, setCurrentCanvasName] = useState(null);
+  const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
+  const pendingNavigationViewRef = useRef(null);
 
   // clear screen function
   const handleClear = () => {
@@ -34,17 +37,38 @@ export default function App() {
     socket.emit('clear');
   };
 
-  const handleSave = () => {
-    const name = prompt('Enter a name for this canvas:');
-    if (name) {
-      socket.emit('saveCanvas', name);
+  // resets all states, then leaves the current canvas if applicable
+  const handleNewCanvas = () => {
+    setObjects([]);
+    setSelectedObjectIds([]);
+    setHoveredObjectIds([]);
+    setEditingText(null);
+    setIsChangingText(false);
+    setCurrentCanvasName(null);
+    setCurrentDrawingTitle('Untitled');
+    socket.emit('leaveCanvas');
+    setCurrentView('canvas');
+  };
+
+  // galleryView parameter if redirecting to gallery
+  const handleSave = (galleryView) => {
+    const name = currentDrawingTitle && currentDrawingTitle !== 'Untitled'
+      ? currentDrawingTitle
+      : prompt('Enter a name for this canvas:');
+
+    if (!name) return;
+
+    if (galleryView) {
+      pendingNavigationViewRef.current = 'gallery';
     }
+
+    socket.emit('saveCanvas', { name, objects });
   };
 
   // passing this into hamburger menu is necessary so menu doesn't close
   // unexpectedly before gallery view is opened
   const handleGalleryClick = () => {
-    setCurrentView('gallery');
+    handleSave(true);
   };
 
   // removes the selected objects from canvas  
@@ -58,9 +82,15 @@ export default function App() {
     // removes preload class to reenable transitions after initial loading    
     document.body.classList.remove('preload');
 
-    // waits for server updates, then sends changes to canvas
-    socket.on('loadState', ({ objects: serverObjects }) => {
+    // waits for server updates, then sends changes to canvas    
+    socket.on('loadState', ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
+      if (name) {
+        setCurrentCanvasName(name);
+        setCurrentDrawingTitle(name);
+      } else {
+        setCurrentCanvasName(null);
+      }
     });
 
     socket.on('addObject', (object) => {
@@ -109,9 +139,16 @@ export default function App() {
     // creates popup alerts for the client
     socket.on('canvasSaved', ({ name, fileName }) => {
       alert(`Canvas "${name}" saved successfully!`);
+      // updates drawing title on-screen before exiting
+      setCurrentDrawingTitle(name);
+      if (pendingNavigationViewRef.current) {
+        setCurrentView(pendingNavigationViewRef.current);
+        pendingNavigationViewRef.current = null;
+      }
     });
 
     socket.on('saveError', (error) => {
+      pendingNavigationViewRef.current = null;
       alert(`Error saving canvas: ${error}`);
     });
 
@@ -124,11 +161,15 @@ export default function App() {
     return () => {
       socket.off('loadState');
       socket.off('addObject');
+      socket.off('updateObject');
       socket.off('moveObjects');
       socket.off('deleteObjects');
       socket.off('clear');
+      socket.off('canvasSaved');
+      socket.off('saveError');
+      socket.off('loadError');
     };
-  }, [setObjects, setSelectedObjectIds]);
+  }, []);
 
   // changes editingText properties if options were changed midway
   // NOTE: would not prefer putting this useEffect here, but this file 
@@ -139,15 +180,14 @@ export default function App() {
     }
   }, [fontSize, textColor]);
 
-
   return (
     <div className="app">
       {currentView === 'gallery' ? (
-        <Gallery setCurrentView={setCurrentView} />
+        <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} />
       ) : (
         <>
           <header className="header">
-            <h1>Livedraw</h1>
+            <h1>{currentDrawingTitle}</h1>
             <HamburgerMenu onGalleryClick={handleGalleryClick} />
           </header>
           {tool === 'draw' && (
