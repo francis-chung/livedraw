@@ -26,6 +26,7 @@ export default function App() {
   const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
   const [currentView, setCurrentView] = useState('gallery');
+  const [currentCanvasName, setCurrentCanvasName] = useState(null);
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const pendingNavigationViewRef = useRef(null);
 
@@ -41,26 +42,24 @@ export default function App() {
     setHoveredObjectIds([]);
     setEditingText(null);
     setIsChangingText(false);
+    setCurrentCanvasName(null);
     setCurrentDrawingTitle('Untitled');
-    socket.emit('clear');
+    socket.emit('leaveCanvas');
     setCurrentView('canvas');
   };
 
-  const handleSave = (galleryView = false) => {
-    if (currentDrawingTitle && currentDrawingTitle !== 'Untitled') {
-      if (galleryView) {
-        pendingNavigationViewRef.current = 'gallery';
-      }
-      socket.emit('saveCanvas', currentDrawingTitle);
-      return;
+  const handleSave = (galleryView) => {
+    const name = currentDrawingTitle && currentDrawingTitle !== 'Untitled'
+      ? currentDrawingTitle
+      : prompt('Enter a name for this canvas:');
+
+    if (!name) return;
+
+    if (galleryView) {
+      pendingNavigationViewRef.current = 'gallery';
     }
-    const name = prompt('Enter a name for this canvas:');
-    if (name) {
-      if (galleryView) {
-        pendingNavigationViewRef.current = 'gallery';
-      }
-      socket.emit('saveCanvas', name);
-    }
+
+    socket.emit('saveCanvas', { name, objects });
   };
 
   const handleGalleryClick = () => {
@@ -79,7 +78,10 @@ export default function App() {
     socket.on('loadState', ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
       if (name) {
+        setCurrentCanvasName(name);
         setCurrentDrawingTitle(name);
+      } else {
+        setCurrentCanvasName(null);
       }
     });
 
@@ -149,9 +151,13 @@ export default function App() {
     return () => {
       socket.off('loadState');
       socket.off('addObject');
+      socket.off('updateObject');
       socket.off('moveObjects');
       socket.off('deleteObjects');
       socket.off('clear');
+      socket.off('canvasSaved');
+      socket.off('saveError');
+      socket.off('loadError');
     };
   }, []);
 

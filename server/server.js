@@ -16,14 +16,38 @@ const io = new Server(server, {
     }
 });
 
-let objects = [];
+const canvasStates = {};
 const SAVES_DIR = path.join(__dirname, 'saves');
 
 if (!fs.existsSync(SAVES_DIR)) {
     fs.mkdirSync(SAVES_DIR);
 }
 
-function saveCanvas(name) {
+function getCanvasState(name) {
+    if (!canvasStates[name]) {
+        canvasStates[name] = [];
+    }
+    return canvasStates[name];
+}
+
+function leaveCurrentCanvas(socket) {
+    if (socket.currentRoom) {
+        socket.leave(socket.currentRoom);
+        socket.currentRoom = null;
+        socket.currentCanvas = null;
+    }
+}
+
+function joinCanvas(socket, name) {
+    leaveCurrentCanvas(socket);
+    const room = `canvas:${name}`;
+    socket.join(room);
+    socket.currentRoom = room;
+    socket.currentCanvas = name;
+    return getCanvasState(name);
+}
+
+function saveCanvas(name, objects) {
     const fileName = `${name}.json`;
     const filePath = path.join(SAVES_DIR, fileName);
     const data = JSON.stringify(objects, null, 2);
@@ -36,8 +60,9 @@ function loadCanvas(name) {
     const filePath = path.join(SAVES_DIR, fileName);
     if (fs.existsSync(filePath)) {
         const data = fs.readFileSync(filePath, 'utf8');
-        objects = JSON.parse(data);
-        return objects;
+        const loadedObjects = JSON.parse(data);
+        canvasStates[name] = loadedObjects;
+        return loadedObjects;
     }
     return null;
 }
@@ -59,27 +84,34 @@ function deleteCanvas(name) {
 
 io.on('connection', (socket) => {
     console.log('a user connected on: ', socket.id);
+    socket.currentCanvas = null;
+    socket.currentRoom = null;
 
     socket.emit('loadState', {
-        objects
+        objects: []
     });
 
     socket.on('addObject', (object) => {
+        if (!socket.currentCanvas) return;
+        const objects = getCanvasState(socket.currentCanvas);
         objects.push(object);
-        socket.broadcast.emit('addObject', object);
+        socket.to(socket.currentRoom).emit('addObject', object);
     });
 
     socket.on('updateObject', (object) => {
-        objects = objects.map(obj =>
+        if (!socket.currentCanvas) return;
+        const objects = getCanvasState(socket.currentCanvas);
+        canvasStates[socket.currentCanvas] = objects.map(obj =>
             obj.id === object.id ? object : obj
         );
-        socket.broadcast.emit('updateObject', object);
-    })
+        socket.to(socket.currentRoom).emit('updateObject', object);
+    });
 
     socket.on('moveObjects', (ids, dp) => {
-        const idSet = new Set(ids);
-        objects = objects.map((obj) => {
-            if (!idSet.has(obj.id)) return obj;
+        if (!socket.currentCanvas) return;
+        const objects = getCanvasState(socket.currentCanvas);
+        canvasStates[socket.currentCanvas] = objects.map((obj) => {
+            if (!ids.includes(obj.id)) return obj;
             if (obj.type === 'stroke') {
                 return {
                     ...obj,
@@ -98,22 +130,27 @@ io.on('connection', (socket) => {
             }
             return obj;
         });
-        socket.broadcast.emit('moveObjects', ids, dp);
+        socket.to(socket.currentRoom).emit('moveObjects', ids, dp);
     });
 
     socket.on('deleteObjects', (ids) => {
-        objects = objects.filter((obj) => !ids.includes(obj.id));
-        socket.broadcast.emit('deleteObjects', ids);
+        if (!socket.currentCanvas) return;
+        const objects = getCanvasState(socket.currentCanvas);
+        canvasStates[socket.currentCanvas] = objects.filter((obj) => !ids.includes(obj.id));
+        socket.to(socket.currentRoom).emit('deleteObjects', ids);
     });
 
     socket.on('clear', () => {
-        objects = [];
-        socket.broadcast.emit('clear');
+        if (!socket.currentCanvas) return;
+        canvasStates[socket.currentCanvas] = [];
+        socket.to(socket.currentRoom).emit('clear');
     });
 
-    socket.on('saveCanvas', (name) => {
+    socket.on('saveCanvas', ({ name, objects: clientObjects }) => {
         try {
-            const fileName = saveCanvas(name);
+            const objectsToSave = clientObjects || canvasStates[name] || [];
+            canvasStates[name] = objectsToSave;
+            const fileName = saveCanvas(name, objectsToSave);
             socket.emit('canvasSaved', { name, fileName });
             console.log(`Canvas saved as ${fileName}`);
         } catch (error) {
@@ -125,15 +162,19 @@ io.on('connection', (socket) => {
         try {
             const loadedObjects = loadCanvas(name);
             if (loadedObjects !== null) {
-                objects = loadedObjects;
-                io.emit('loadState', { objects, name });
-                console.log(`Canvas ${name} loaded`);
+                joinCanvas(socket, name);
+                socket.emit('loadState', { objects: loadedObjects, name });
+                console.log(`Canvas ${name} loaded in room ${socket.currentRoom}`);
             } else {
                 socket.emit('loadError', `Canvas ${name} not found`);
             }
         } catch (error) {
             socket.emit('loadError', error.message);
         }
+    });
+
+    socket.on('leaveCanvas', () => {
+        leaveCurrentCanvas(socket);
     });
 
     socket.on('getSavedCanvases', () => {
