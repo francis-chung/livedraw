@@ -25,8 +25,9 @@ export default function App() {
   const [hoveredObjectIds, setHoveredObjectIds] = useState([]);
   const [isChangingText, setIsChangingText] = useState(false);
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
-  const [currentView, setCurrentView] = useState('canvas');
+  const [currentView, setCurrentView] = useState('gallery');
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
+  const pendingNavigationViewRef = useRef(null);
 
   const handleClear = () => {
     setObjects([]);
@@ -34,16 +35,36 @@ export default function App() {
     socket.emit('clear');
   };
 
-  const handleSave = () => {
+  const handleNewCanvas = () => {
+    setObjects([]);
+    setSelectedObjectIds([]);
+    setHoveredObjectIds([]);
+    setEditingText(null);
+    setIsChangingText(false);
+    setCurrentDrawingTitle('Untitled');
+    socket.emit('clear');
+    setCurrentView('canvas');
+  };
+
+  const handleSave = (galleryView = false) => {
+    if (currentDrawingTitle && currentDrawingTitle !== 'Untitled') {
+      if (galleryView) {
+        pendingNavigationViewRef.current = 'gallery';
+      }
+      socket.emit('saveCanvas', currentDrawingTitle);
+      return;
+    }
     const name = prompt('Enter a name for this canvas:');
     if (name) {
+      if (galleryView) {
+        pendingNavigationViewRef.current = 'gallery';
+      }
       socket.emit('saveCanvas', name);
     }
   };
 
   const handleGalleryClick = () => {
-    handleSave();
-    setCurrentView('gallery');
+    handleSave(true);
   };
 
   const deleteObjects = (objectIds) => {
@@ -54,8 +75,6 @@ export default function App() {
 
   useEffect(() => {
     document.body.classList.remove('preload');
-
-    console.log("check");
 
     socket.on('loadState', ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
@@ -110,9 +129,14 @@ export default function App() {
     socket.on('canvasSaved', ({ name, fileName }) => {
       alert(`Canvas "${name}" saved successfully!`);
       setCurrentDrawingTitle(name);
+      if (pendingNavigationViewRef.current) {
+        setCurrentView(pendingNavigationViewRef.current);
+        pendingNavigationViewRef.current = null;
+      }
     });
 
     socket.on('saveError', (error) => {
+      pendingNavigationViewRef.current = null;
       alert(`Error saving canvas: ${error}`);
     });
 
@@ -140,7 +164,7 @@ export default function App() {
   return (
     <div className="app">
       {currentView === 'gallery' ? (
-        <Gallery setCurrentView={setCurrentView} />
+        <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} />
       ) : (
         <>
           <header className="header">

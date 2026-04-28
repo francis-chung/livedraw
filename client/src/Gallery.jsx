@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import socket from './socket.js';
 import './gallery.css';
 
-export default function Gallery({ setCurrentView }) {
+export default function Gallery({ setCurrentView, onNewCanvas }) {
     const [savedCanvases, setSavedCanvases] = useState([]);
 
     useEffect(() => {
@@ -40,14 +40,18 @@ export default function Gallery({ setCurrentView }) {
     };
 
     const handleBack = () => {
-        setCurrentView('canvas');
+        if (onNewCanvas) {
+            onNewCanvas();
+        } else {
+            setCurrentView('canvas');
+        }
     };
 
     return (
         <div className="gallery">
             <header className="gallery-header">
                 <h1>Canvas Gallery</h1>
-                <button onClick={handleBack}>Back to Canvas</button>
+                <button onClick={handleBack}>New Canvas</button>
             </header>
             <div className="gallery-content">
                 {savedCanvases.length === 0 ? (
