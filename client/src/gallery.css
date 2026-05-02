@@ -56,6 +56,15 @@
   margin: 0 0 1rem 0;
 }
 
+.canvas-item .preview {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
 .canvas-item .buttons {
   display: flex;
   justify-content: center;
