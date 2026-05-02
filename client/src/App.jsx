@@ -9,6 +9,7 @@ import Textbar from './Textbar.jsx';
 import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
 import Gallery from './Gallery.jsx';
+import Welcome from './Welcome.jsx';
 
 export default function App() {
   const stageRef = useRef(null);
@@ -28,7 +29,22 @@ export default function App() {
   const [currentView, setCurrentView] = useState('gallery');
   const [currentCanvasName, setCurrentCanvasName] = useState(null);
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
+  const [user, setUser] = useState(null);
   const pendingNavigationViewRef = useRef(null);
+
+  const handleSignIn = ({ profile, token }) => {
+    const authUser = { ...profile, token };
+    localStorage.setItem('livedrawUser', JSON.stringify(authUser));
+    setUser(authUser);
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('livedrawUser');
+    setUser(null);
+    if (socket.connected) {
+      socket.disconnect();
+    }
+  };
 
   const handleClear = () => {
     setObjects([]);
@@ -74,6 +90,28 @@ export default function App() {
 
   useEffect(() => {
     document.body.classList.remove('preload');
+    const storedUser = localStorage.getItem('livedrawUser');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error('Invalid stored user', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    socket.auth = { user };
+
+    socket.on('connect', () => {
+      socket.emit('authenticate', { profile: user, token: user.token });
+    });
+
+    socket.on('authenticated', (profile) => {
+      console.log('Authenticated user:', profile?.email || profile?.name);
+    });
 
     socket.on('loadState', ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
@@ -117,7 +155,7 @@ export default function App() {
         }
         return obj;
       }));
-    })
+    });
 
     socket.on('deleteObjects', (ids) => {
       setObjects((prev) => prev.filter(obj => !ids.includes(obj.id)));
@@ -128,7 +166,7 @@ export default function App() {
       setSelectedObjectIds([]);
     });
 
-    socket.on('canvasSaved', ({ name, fileName }) => {
+    socket.on('canvasSaved', ({ name }) => {
       alert(`Canvas "${name}" saved successfully!`);
       setCurrentDrawingTitle(name);
       if (pendingNavigationViewRef.current) {
@@ -149,6 +187,8 @@ export default function App() {
     socket.connect();
 
     return () => {
+      socket.off('connect');
+      socket.off('authenticated');
       socket.off('loadState');
       socket.off('addObject');
       socket.off('updateObject');
@@ -158,8 +198,11 @@ export default function App() {
       socket.off('canvasSaved');
       socket.off('saveError');
       socket.off('loadError');
+      if (socket.connected) {
+        socket.disconnect();
+      }
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (editingText) {
@@ -167,8 +210,23 @@ export default function App() {
     }
   }, [fontSize, textColor]);
 
+  if (!user) {
+    return <Welcome onSignIn={handleSignIn} />;
+  }
+
   return (
     <div className="app">
+      <header className="header">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div>
+            <h1>{currentView === 'gallery' ? 'Canvas Gallery' : currentDrawingTitle}</h1>
+            <p style={{ margin: 0, opacity: 0.75 }}>Signed in as {user.name || user.email}</p>
+          </div>
+          <button onClick={handleSignOut} style={{ padding: '8px 14px', borderRadius: '8px', cursor: 'pointer' }}>
+            Sign out
+          </button>
+        </div>
+      </header>
       {currentView === 'gallery' ? (
         <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} />
       ) : (

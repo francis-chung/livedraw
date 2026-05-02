@@ -39,7 +39,7 @@
   scrollbar-color: #999 #f5f5f5;
 }
 
-/* Webkit browsers (Chrome, Safari, Edge) */
+/* implementations for webkit browsers */
 .gallery-content::-webkit-scrollbar {
   width: 8px;
 }

@@ -90,6 +90,23 @@ io.on('connection', (socket) => {
     console.log('a user connected on: ', socket.id);
     socket.currentCanvas = null;
     socket.currentRoom = null;
+    socket.user = null;
+
+    if (socket.handshake.auth?.user) {
+        socket.user = socket.handshake.auth.user;
+        socket.emit('authenticated', socket.user);
+        console.log('authenticated via handshake:', socket.user.email || socket.user.name || socket.user.sub);
+    }
+
+    socket.on('authenticate', ({ profile, token }) => {
+        if (!profile || !profile.email) {
+            socket.emit('authenticationError', 'Missing profile information');
+            return;
+        }
+        socket.user = profile;
+        socket.emit('authenticated', profile);
+        console.log('authenticated user:', profile.email || profile.name || profile.sub);
+    });
 
     socket.emit('loadState', {
         objects: []
@@ -155,7 +172,7 @@ io.on('connection', (socket) => {
             const objectsToSave = clientObjects || canvasStates[name] || [];
             canvasStates[name] = objectsToSave;
             const fileName = saveCanvas(name, objectsToSave);
-            socket.emit('canvasSaved', { name, fileName });
+            socket.emit('canvasSaved', name);
             console.log(`Canvas saved as ${fileName}`);
         } catch (error) {
             socket.emit('saveError', error.message);
