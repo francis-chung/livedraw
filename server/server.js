@@ -101,7 +101,11 @@ function loadCanvas(name) {
 // returns list of names of saved canvases
 function getSavedCanvases() {
     const files = fs.readdirSync(SAVES_DIR);
-    return files.filter(file => file.endsWith('.json')).map(file => file.replace('.json', ''));
+    return files.filter(file => file.endsWith('.json')).map(file => {
+        const name = file.replace('.json', '');
+        const loadedObjects = loadCanvas(name);
+        return { name, objects: loadedObjects };
+    });
 }
 
 function deleteCanvas(name) {
@@ -226,9 +230,7 @@ io.on('connection', (socket) => {
     socket.on('deleteCanvas', (name) => {
         try {
             deleteCanvas(name);
-            // NOTE: canvasDeleted should not be broadcasted to everyone
-            // but updated list of canvases should
-            io.emit('canvasDeleted', name);
+            socket.emit('canvasDeleted', name);
             io.emit('savedCanvases', getSavedCanvases());
             console.log(`Canvas ${name} deleted`);
         } catch (error) {

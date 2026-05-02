@@ -29,7 +29,33 @@
 .gallery-content {
   flex: 1;
   padding: 2rem;
-  overflow-y: auto;
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.gallery-content:hover {
+  scrollbar-color: #999 #f5f5f5;
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+.gallery-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gallery-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gallery-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.gallery-content:hover::-webkit-scrollbar-thumb {
+  background-color: #999;
 }
 
 .canvas-list {
@@ -60,6 +86,15 @@ when width <= 720px, create only one grid column */
 
 .canvas-item h3 {
   margin: 0 0 1rem 0;
+}
+
+.canvas-item .preview {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .canvas-item .buttons {

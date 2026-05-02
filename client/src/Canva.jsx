@@ -4,8 +4,7 @@ import socket from './socket.js';
 import './app.css';
 import { TextPath } from 'konva/lib/shapes/TextPath';
 import { Path } from 'konva/lib/shapes/Path';
-import LineObject from './LineObject.jsx';
-import TextObject from './TextObject.jsx';
+import { getFlatPoints, renderObject } from './utils.jsx';
 
 export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, lineSize, lineColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectIds, setHoveredObjectIds, editingText, setEditingText, setIsChangingText }) {
   // useRef: similar to useState, but does not cause a screen re-render
@@ -25,12 +24,6 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
   const stageWidth = 800;
   const stageHeight = 600;
-
-  // flattens points array by one level => [x1, y1, x2, y2...]
-  // necessary for Konva line points format
-  const getFlatPoints = (obj) => {
-    return obj.points.flatMap(p => [p.x + obj.x, p.y + obj.y]);
-  };
 
   // creates bounding boxes for any type of object
   const getObjectBounds = (object) => {
@@ -298,38 +291,19 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     setDragPos({ x: 0, y: 0 });
   };
 
-  const renderObject = (object) => {
-    if (object.type === 'stroke' || object.type === 'line') {
-      return (
-        <LineObject
-          key={object.id}
-          object={object}
-          getFlatPoints={getFlatPoints}
-          handleObjectClick={handleObjectClick}
-          setHoveredObjectIds={setHoveredObjectIds}
-          tool={tool}
-          fadedOpacity={isLining.current && object.id === currentStrokeId.current}
-        />
-      );
-    }
-
-    if (object.type === 'text') {
-      return (
-        <TextObject
-          key={object.id}
-          object={object}
-          handleObjectClick={handleObjectClick}
-          setSelectedObjectIds={setSelectedObjectIds}
-          setHoveredObjectIds={setHoveredObjectIds}
-          setIsChangingText={setIsChangingText}
-          setEditingText={setEditingText}
-          tool={tool}
-          setTool={setTool}
-        />
-      );
-    }
-
-    return null;
+  const renderObjects = (obj) => {
+    return renderObject({
+      object: obj,
+      tool,
+      setTool,
+      handleObjectClick,
+      setSelectedObjectIds,
+      setHoveredObjectIds,
+      setIsChangingText,
+      setEditingText,
+      isLining,
+      currentStrokeId
+    })
   }
 
   useEffect(() => {
@@ -361,7 +335,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
         <Layer>
           {objects
             .filter((object) => !selectedObjectIds.includes(object.id) && (!editingText || object.id !== editingText.id))
-            .map(renderObject)}
+            .map(renderObjects)}
 
           {selectedObjectIds.length > 0 && (
             <Group
@@ -371,7 +345,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
               onDragMove={handleGroupDragMove}
               onDragEnd={handleGroupDragEnd}
             >
-              {objects.filter(obj => selectedObjectIds.includes(obj.id)).map(renderObject)}
+              {objects.filter(obj => selectedObjectIds.includes(obj.id)).map(renderObjects)}
             </Group>
           )}
 
