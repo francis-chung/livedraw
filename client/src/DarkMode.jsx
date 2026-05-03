@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import './hamburgerMenu.css';
+import './sidebarMenu.css';
 
 export default function DarkMode() {
     const [isDarkMode, setIsDarkMode] = useState(() => {

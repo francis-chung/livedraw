@@ -1,6 +1,6 @@
-@import './app.css';
+@import './App.css';
 
-.hamburger-container {
+.sidebar-container {
     position: absolute;
     right: 20px;
     top: 15px;
@@ -112,13 +112,12 @@
     transform: scale(0.98);
 }
 
-.sidebar-settings.danger {
-    background: rgba(220, 53, 69, 0.15);
-    color: #ff6b6b;
+.sidebar-settings button.sign-out {
+    color: #dc3545;
 }
 
-.sidebar-settings.danger {
-    background: rgba(220, 53, 69, 0.25);
+.sidebar-settings button.sign-out:hover {
+    background: rgba(220, 53, 69, 0.1);
 }
 
 @keyframes slideIn {

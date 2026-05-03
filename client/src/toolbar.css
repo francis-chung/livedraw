@@ -1,4 +1,4 @@
-@import './app.css';
+@import './App.css';
 
 .toolbar {
     grid-column: 1;
@@ -38,13 +38,13 @@
 }
 
 .toolbar button.clear {
-    background-color: #dc3545;
+    background-color: var(--danger);
     color: white;
     box-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.15);
 }
 
 .toolbar button.clear:hover {
-    background-color: #c82333;
+    background-color: var(--danger-hover);
 }
 
 .toolbar button.save {
