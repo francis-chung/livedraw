@@ -77,7 +77,6 @@ export default function App() {
     if (galleryView) {
       pendingNavigationViewRef.current = 'gallery';
     }
-
     socket.emit('saveCanvas', { name, objects });
   };
 
@@ -183,8 +182,8 @@ export default function App() {
       setSelectedObjectIds([]);
     });
 
-    // creates popup alerts for the client    
-    socket.on('canvasSaved', ({ name }) => {
+    // creates popup alerts for the client       
+    socket.on('canvasSaved', (name) => {
       alert(`Canvas "${name}" saved successfully!`);
       // updates drawing title on-screen before exiting
       setCurrentDrawingTitle(name);
