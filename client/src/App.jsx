@@ -113,6 +113,13 @@ export default function App() {
       console.log('Authenticated user:', profile?.email || profile?.name);
     });
 
+    socket.on('authenticationError', (error) => {
+      console.error('Authentication error:', error);
+      localStorage.removeItem('livedrawUser');
+      setUser(null);
+      alert('Authentication failed. Please sign in again.');
+    });
+
     socket.on('loadState', ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
       if (name) {
@@ -189,6 +196,7 @@ export default function App() {
     return () => {
       socket.off('connect');
       socket.off('authenticated');
+      socket.off('authenticationError');
       socket.off('loadState');
       socket.off('addObject');
       socket.off('updateObject');
