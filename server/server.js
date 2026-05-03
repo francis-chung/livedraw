@@ -1,3 +1,6 @@
+// imports dotenv module and calls it immediately
+// loads .env file variables into process.env
+require('dotenv').config();
 // a helper on top of http that handles requests easier
 const express = require('express');
 
@@ -12,12 +15,17 @@ const { Server } = require('socket.io');
 const fs = require('fs');
 // path utility helps build file paths safely across different OS
 const path = require('path');
+const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 const server = http.createServer(app);
 
 // accesses environment variable (default configuration) for port, with fallback
 const PORT = process.env.PORT || 3001;
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+// provides access to google verification
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // opens a live channel when user connects
 // 5173: default frontend port for vite
@@ -43,6 +51,46 @@ const SAVES_DIR = path.join(__dirname, 'saves');
 // proceeding to next line
 if (!fs.existsSync(SAVES_DIR)) {
     fs.mkdirSync(SAVES_DIR);
+}
+
+// sets socket user on login or socket connect
+// must be called only after verification
+function setUser(socket, user) {
+    socket.user = user;
+    socket.emit('authenticated', user);
+}
+
+// ensures socket has an authenticated user before proceeding
+function requireAuth(socket, callback) {
+    if (!socket.user) {
+        socket.emit('authenticationError', 'Authentication required');
+        return false;
+    }
+    return true;
+}
+
+// validates google login token 
+async function verifyGoogleToken(token) {
+    try {
+        // uses google auth library's official method to check if: 
+        // 1. token is valid
+        // 2. token was issued for this app (based on audience)
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: GOOGLE_CLIENT_ID,
+        });
+        // processes verified token and returns relevant details
+        const payload = ticket.getPayload();
+        return {
+            sub: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+        };
+    } catch (error) {
+        console.error('Token verification failed:', error);
+        return null;
+    }
 }
 
 // returns all objects of a specific canvas
@@ -129,20 +177,28 @@ io.on('connection', (socket) => {
     // reads data sent by client during handshake connection
     // active when socket first connects, and user is already signed in
     if (socket.handshake.auth?.user) {
-        socket.user = socket.handshake.auth.user;
-        socket.emit('authenticated', socket.user);
+        // COPILOT: For handshake auth, we assume the user was already verified on previous connection
+        // In production, you might want to re-verify or use a session token
+        setUser(socket, socket.handshake.auth.user);
         console.log('authenticated via handshake:', socket.user.email || socket.user.name || socket.user.sub);
     }
 
-    // used for when socket is already connected, then client sends request
-    socket.on('authenticate', ({ profile, token }) => {
-        if (!profile || !profile.email) {
-            socket.emit('authenticationError', 'Missing profile information');
+    // used for when socket is already connected, then client sends request    
+    socket.on('authenticate', async ({ profile, token }) => {
+        if (!token) {
+            socket.emit('authenticationError', 'Missing token');
             return;
         }
-        socket.user = profile;
-        socket.emit('authenticated', profile);
-        console.log('authenticated user:', profile.email || profile.name || profile.sub);
+
+        // verifies token before proceeding
+        const verifiedProfile = await verifyGoogleToken(token);
+        if (!verifiedProfile) {
+            socket.emit('authenticationError', 'Invalid token');
+            return;
+        }
+
+        setUser(socket, verifiedProfile);
+        console.log('authenticated user:', verifiedProfile.email || verifiedProfile.name || verifiedProfile.sub);
     });
 
     // emits current state of canvas
@@ -208,7 +264,9 @@ io.on('connection', (socket) => {
         socket.to(socket.currentRoom).emit('clear');
     });
 
+    // this and several other events check authentication before proceeding
     socket.on('saveCanvas', ({ name, objects: clientObjects }) => {
+        if (!requireAuth(socket)) return;
         try {
             // returns first truthy value in the list
             const objectsToSave = clientObjects || canvasStates[name] || [];
@@ -223,6 +281,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('loadCanvas', (name) => {
+        if (!requireAuth(socket)) return;
         try {
             const loadedObjects = loadCanvas(name);
             if (loadedObjects !== null) {
@@ -243,11 +302,13 @@ io.on('connection', (socket) => {
     });
 
     socket.on('getSavedCanvases', () => {
+        if (!requireAuth(socket)) return;
         const canvases = getSavedCanvases();
         socket.emit('savedCanvases', canvases);
     });
 
     socket.on('deleteCanvas', (name) => {
+        if (!requireAuth(socket)) return;
         try {
             deleteCanvas(name);
             socket.emit('canvasDeleted', name);

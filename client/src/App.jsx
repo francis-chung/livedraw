@@ -122,7 +122,14 @@ export default function App() {
       console.log('Authenticated user:', profile?.email || profile?.name);
     });
 
-    // waits for server updates, then sends changes to canvas    
+    socket.on('authenticationError', (error) => {
+      console.error('Authentication error:', error);
+      localStorage.removeItem('livedrawUser');
+      setUser(null);
+      alert('Authentication failed. Please sign in again.');
+    });
+
+    // waits for server updates, then sends changes to canvas       
     socket.on('loadState', ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
       if (name) {
@@ -201,6 +208,7 @@ export default function App() {
     return () => {
       socket.off('connect');
       socket.off('authenticated');
+      socket.off('authenticationError');
       socket.off('loadState');
       socket.off('addObject');
       socket.off('updateObject');
