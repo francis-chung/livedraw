@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import './hamburgerMenu.css';
+import './sidebarMenu.css';
 
 export default function DarkMode() {
     // retrieves from localStorage, originally as JSON object

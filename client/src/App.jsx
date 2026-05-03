@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
-import './app.css';
-import HamburgerMenu from './HamburgerMenu.jsx';
+import './App.css';
+import SidebarMenu from './SidebarMenu.jsx';
 import Drawbar from './Drawbar.jsx';
 import Selectbar from './Selectbar.jsx';
 import Textbar from './Textbar.jsx';
@@ -13,6 +13,7 @@ import Welcome from './Welcome.jsx';
 
 export default function App() {
   const stageRef = useRef(null);
+  const sidebarRef = useRef(null);
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
   const [fontSize, setFontSize] = useState(16);
@@ -190,6 +191,9 @@ export default function App() {
       if (pendingNavigationViewRef.current) {
         setCurrentView(pendingNavigationViewRef.current);
         pendingNavigationViewRef.current = null;
+        // waits for the current view to change before calling 
+        // child component's function and closing the sidebar
+        sidebarRef.current.closeSidebar();
       }
     });
 
@@ -239,23 +243,14 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div>
-            <h1>{currentView === 'gallery' ? 'Canvas Gallery' : currentDrawingTitle}</h1>
-            <p style={{ margin: 0, opacity: 0.75 }}>Signed in as {user.name || user.email}</p>
-          </div>
-          <button onClick={handleSignOut} style={{ padding: '8px 14px', borderRadius: '8px', cursor: 'pointer' }}>
-            Sign out
-          </button>
-        </div>
+        <SidebarMenu user={user} onGalleryClick={handleGalleryClick} ref={sidebarRef} />
       </header>
       {currentView === 'gallery' ? (
-        <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} />
+        <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} onSignOut={handleSignOut} />
       ) : (
         <>
           <header className="header">
             <h1>{currentDrawingTitle}</h1>
-            <HamburgerMenu onGalleryClick={handleGalleryClick} />
           </header>
           {tool === 'draw' && (
             <Drawbar

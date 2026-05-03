@@ -31,6 +31,8 @@ body.light {
   --canvas-border: #cccccc;
   --toolbar-background: #ffffff;
   --sidebar-background: #ffffff;
+  --danger: #dc3545;
+  --danger-hover: #c82333;
   --sidebar-settings-background: rgba(0, 0, 0, 0.04);
   --sidebar-button: rgba(0, 0, 0, 0.06);
   --sidebar-button-hover: rgba(0, 0, 0, 0.1);

@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import './hamburgerMenu.css';
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import './sidebarMenu.css';
 import DarkMode from './DarkMode.jsx';
 
-export default function HamburgerMenu({ onGalleryClick }) {
-    // both states necessary for smooth CSS transition animations    
+// forwardRef enables a ref to be passed into function
+// allows parent components to access functions of child components
+const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOut }, ref) {
+    // both states necessary for smooth CSS transition animations      
     const [isOpen, setIsOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
 
@@ -22,8 +24,14 @@ export default function HamburgerMenu({ onGalleryClick }) {
         }, 250);
     };
 
+    // useImperativeHandle used to customize which functions are exposed 
+    // to parent components when using a ref
+    useImperativeHandle(ref, () => ({
+        closeSidebar
+    }));
+
     return (
-        <div className="hamburger-container">
+        <div className="sidebar-container">
             <button
                 className="hamburger"
                 aria-label="Open menu"
@@ -54,7 +62,13 @@ export default function HamburgerMenu({ onGalleryClick }) {
                             <h3>Settings</h3>
                             <DarkMode />
                             <button className="gallery-button" onClick={onGalleryClick}>
-                                🖼️ Gallery
+                                Gallery
+                            </button>
+                        </div>
+                        <div className="sidebar-settings">
+                            <h3>Signed in as {user.name || user.email}</h3>
+                            <button className="sign-out" onClick={onSignOut}>
+                                Sign out
                             </button>
                         </div>
                     </aside>
@@ -62,4 +76,6 @@ export default function HamburgerMenu({ onGalleryClick }) {
             )}
         </div>
     );
-}
+})
+
+export default SidebarMenu;

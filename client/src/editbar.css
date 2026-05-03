@@ -1,4 +1,4 @@
-@import './app.css';
+@import './App.css';
 
 .editbar {
     display: flex;
@@ -33,7 +33,7 @@
 
 .delete {
     padding: 5.5px 16px;
-    background-color: #dc3545;
+    background-color: var(--danger);
     color: #ffffff;
     border: none;
     border-radius: 4px;
@@ -43,7 +43,7 @@
 }
 
 .delete:hover {
-    background-color: #c82333;
+    background-color: var(--danger-hover);
 }
 
 .textbox-container {

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { Stage, Layer, Line, Text, Rect, Group } from 'react-konva';
 import socket from './socket.js';
-import './app.css';
+import './App.css';
 import { TextPath } from 'konva/lib/shapes/TextPath';
 import { Path } from 'konva/lib/shapes/Path';
 import { getFlatPoints, renderObject } from './utils.jsx';
