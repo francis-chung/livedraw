@@ -60,11 +60,12 @@ async function verifyGoogleToken(token) {
     }
 }
 
-function getCanvasState(name) {
-    if (!canvasStates[name]) {
-        canvasStates[name] = [];
+function getCanvasState(userId, name) {
+    const key = `${userId}:${name}`;
+    if (!canvasStates[key]) {
+        canvasStates[key] = [];
     }
-    return canvasStates[name];
+    return canvasStates[key];
 }
 
 function leaveCurrentCanvas(socket) {
@@ -77,45 +78,56 @@ function leaveCurrentCanvas(socket) {
 
 function joinCanvas(socket, name) {
     leaveCurrentCanvas(socket);
-    const room = `canvas:${name}`;
+    const room = `canvas:${socket.user.sub}:${name}`;
     socket.join(room);
     socket.currentRoom = room;
     socket.currentCanvas = name;
-    return getCanvasState(name);
+    return getCanvasState(socket.user.sub, name);
 }
 
-function saveCanvas(name, objects) {
+function saveCanvas(userId, name, objects) {
+    const userDir = path.join(SAVES_DIR, userId);
+    if (!fs.existsSync(userDir)) {
+        fs.mkdirSync(userDir, { recursive: true });
+    }
     const fileName = `${name}.json`;
-    const filePath = path.join(SAVES_DIR, fileName);
+    const filePath = path.join(userDir, fileName);
     const data = JSON.stringify(objects, null, 2);
     fs.writeFileSync(filePath, data);
     return fileName;
 }
 
-function loadCanvas(name) {
+function loadCanvas(userId, name) {
+    const userDir = path.join(SAVES_DIR, userId);
     const fileName = `${name}.json`;
-    const filePath = path.join(SAVES_DIR, fileName);
+    const filePath = path.join(userDir, fileName);
     if (fs.existsSync(filePath)) {
         const data = fs.readFileSync(filePath, 'utf8');
         const loadedObjects = JSON.parse(data);
-        canvasStates[name] = loadedObjects;
+        const key = `${userId}:${name}`;
+        canvasStates[key] = loadedObjects;
         return loadedObjects;
     }
     return null;
 }
 
-function getSavedCanvases() {
-    const files = fs.readdirSync(SAVES_DIR);
+function getSavedCanvases(userId) {
+    const userDir = path.join(SAVES_DIR, userId);
+    if (!fs.existsSync(userDir)) {
+        return [];
+    }
+    const files = fs.readdirSync(userDir);
     return files.filter(file => file.endsWith('.json')).map(file => {
         const name = file.replace('.json', '');
-        const loadedObjects = loadCanvas(name);
+        const loadedObjects = loadCanvas(userId, name);
         return { name, objects: loadedObjects };
     });
 }
 
-function deleteCanvas(name) {
+function deleteCanvas(userId, name) {
+    const userDir = path.join(SAVES_DIR, userId);
     const fileName = `${name}.json`;
-    const filePath = path.join(SAVES_DIR, fileName);
+    const filePath = path.join(userDir, fileName);
     if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
         return true;
@@ -157,25 +169,27 @@ io.on('connection', (socket) => {
     });
 
     socket.on('addObject', (object) => {
-        if (!socket.currentCanvas) return;
-        const objects = getCanvasState(socket.currentCanvas);
+        if (!socket.currentCanvas || !socket.user) return;
+        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
         objects.push(object);
         socket.to(socket.currentRoom).emit('addObject', object);
     });
 
     socket.on('updateObject', (object) => {
-        if (!socket.currentCanvas) return;
-        const objects = getCanvasState(socket.currentCanvas);
-        canvasStates[socket.currentCanvas] = objects.map(obj =>
+        if (!socket.currentCanvas || !socket.user) return;
+        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
+        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        canvasStates[key] = objects.map(obj =>
             obj.id === object.id ? object : obj
         );
         socket.to(socket.currentRoom).emit('updateObject', object);
     });
 
     socket.on('moveObjects', (ids, dp) => {
-        if (!socket.currentCanvas) return;
-        const objects = getCanvasState(socket.currentCanvas);
-        canvasStates[socket.currentCanvas] = objects.map((obj) => {
+        if (!socket.currentCanvas || !socket.user) return;
+        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
+        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        canvasStates[key] = objects.map((obj) => {
             if (!ids.includes(obj.id)) return obj;
             if (obj.type === 'stroke') {
                 return {
@@ -199,26 +213,29 @@ io.on('connection', (socket) => {
     });
 
     socket.on('deleteObjects', (ids) => {
-        if (!socket.currentCanvas) return;
-        const objects = getCanvasState(socket.currentCanvas);
-        canvasStates[socket.currentCanvas] = objects.filter((obj) => !ids.includes(obj.id));
+        if (!socket.currentCanvas || !socket.user) return;
+        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
+        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        canvasStates[key] = objects.filter((obj) => !ids.includes(obj.id));
         socket.to(socket.currentRoom).emit('deleteObjects', ids);
     });
 
     socket.on('clear', () => {
-        if (!socket.currentCanvas) return;
-        canvasStates[socket.currentCanvas] = [];
+        if (!socket.currentCanvas || !socket.user) return;
+        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        canvasStates[key] = [];
         socket.to(socket.currentRoom).emit('clear');
     });
 
     socket.on('saveCanvas', ({ name, objects: clientObjects }) => {
         if (!requireAuth(socket)) return;
         try {
-            const objectsToSave = clientObjects || canvasStates[name] || [];
-            canvasStates[name] = objectsToSave;
-            const fileName = saveCanvas(name, objectsToSave);
+            const key = `${socket.user.sub}:${name}`;
+            const objectsToSave = clientObjects || canvasStates[key] || [];
+            canvasStates[key] = objectsToSave;
+            const fileName = saveCanvas(socket.user.sub, name, objectsToSave);
             socket.emit('canvasSaved', name);
-            console.log(`Canvas saved as ${fileName}`);
+            console.log(`Canvas saved as ${fileName} for user ${socket.user.sub}`);
         } catch (error) {
             socket.emit('saveError', error.message);
         }
@@ -227,11 +244,13 @@ io.on('connection', (socket) => {
     socket.on('loadCanvas', (name) => {
         if (!requireAuth(socket)) return;
         try {
-            const loadedObjects = loadCanvas(name);
+            const loadedObjects = loadCanvas(socket.user.sub, name);
             if (loadedObjects !== null) {
+                const key = `${socket.user.sub}:${name}`;
+                canvasStates[key] = loadedObjects;
                 joinCanvas(socket, name);
                 socket.emit('loadState', { objects: loadedObjects, name });
-                console.log(`Canvas ${name} loaded in room ${socket.currentRoom}`);
+                console.log(`Canvas ${name} loaded in room ${socket.currentRoom} for user ${socket.user.sub}`);
             } else {
                 socket.emit('loadError', `Canvas ${name} not found`);
             }
@@ -246,17 +265,18 @@ io.on('connection', (socket) => {
 
     socket.on('getSavedCanvases', () => {
         if (!requireAuth(socket)) return;
-        const canvases = getSavedCanvases();
+        const canvases = getSavedCanvases(socket.user.sub);
         socket.emit('savedCanvases', canvases);
     });
 
     socket.on('deleteCanvas', (name) => {
         if (!requireAuth(socket)) return;
         try {
-            deleteCanvas(name);
+            deleteCanvas(socket.user.sub, name);
             socket.emit('canvasDeleted', name);
-            io.emit('savedCanvases', getSavedCanvases());
-            console.log(`Canvas ${name} deleted`);
+            const canvases = getSavedCanvases(socket.user.sub);
+            socket.emit('savedCanvases', canvases);
+            console.log(`Canvas ${name} deleted for user ${socket.user.sub}`);
         } catch (error) {
             socket.emit('deleteError', error.message);
         }

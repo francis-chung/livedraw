@@ -74,7 +74,6 @@ export default function App() {
     if (galleryView) {
       pendingNavigationViewRef.current = 'gallery';
     }
-
     socket.emit('saveCanvas', { name, objects });
   };
 
@@ -173,7 +172,7 @@ export default function App() {
       setSelectedObjectIds([]);
     });
 
-    socket.on('canvasSaved', ({ name }) => {
+    socket.on('canvasSaved', (name) => {
       alert(`Canvas "${name}" saved successfully!`);
       setCurrentDrawingTitle(name);
       if (pendingNavigationViewRef.current) {
