@@ -37,6 +37,10 @@
     }
   </script>
   <div id="root"></div>
+  <!-- loads google's identity services JS library, defining functions that attach to window
+   async (executes immediately after download) takes precedence over defer 
+   (executes after DOM is processed) except on old browsers -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 

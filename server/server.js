@@ -124,6 +124,26 @@ io.on('connection', (socket) => {
     console.log('a user connected on: ', socket.id);
     socket.currentCanvas = null;
     socket.currentRoom = null;
+    socket.user = null;
+
+    // reads data sent by client during handshake connection
+    // active when socket first connects, and user is already signed in
+    if (socket.handshake.auth?.user) {
+        socket.user = socket.handshake.auth.user;
+        socket.emit('authenticated', socket.user);
+        console.log('authenticated via handshake:', socket.user.email || socket.user.name || socket.user.sub);
+    }
+
+    // used for when socket is already connected, then client sends request
+    socket.on('authenticate', ({ profile, token }) => {
+        if (!profile || !profile.email) {
+            socket.emit('authenticationError', 'Missing profile information');
+            return;
+        }
+        socket.user = profile;
+        socket.emit('authenticated', profile);
+        console.log('authenticated user:', profile.email || profile.name || profile.sub);
+    });
 
     // emits current state of canvas
     socket.emit('loadState', {
@@ -194,8 +214,8 @@ io.on('connection', (socket) => {
             const objectsToSave = clientObjects || canvasStates[name] || [];
             canvasStates[name] = objectsToSave;
             const fileName = saveCanvas(name, objectsToSave);
-            // only sends a response to the requesting client            
-            socket.emit('canvasSaved', { name, fileName });
+            // only sends a response to the requesting client
+            socket.emit('canvasSaved', name);
             console.log(`Canvas saved as ${fileName}`);
         } catch (error) {
             socket.emit('saveError', error.message);

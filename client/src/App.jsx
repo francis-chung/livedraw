@@ -9,6 +9,7 @@ import Textbar from './Textbar.jsx';
 import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
 import Gallery from './Gallery.jsx';
+import Welcome from './Welcome.jsx';
 
 export default function App() {
   const stageRef = useRef(null);
@@ -28,9 +29,24 @@ export default function App() {
   const [currentView, setCurrentView] = useState('gallery');
   const [currentCanvasName, setCurrentCanvasName] = useState(null);
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
+  const [user, setUser] = useState(null);
   const pendingNavigationViewRef = useRef(null);
 
-  // clear screen function
+  const handleSignIn = ({ profile, token }) => {
+    const authUser = { ...profile, token };
+    localStorage.setItem('livedrawUser', JSON.stringify(authUser));
+    setUser(authUser);
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('livedrawUser');
+    setUser(null);
+    if (socket.connected) {
+      socket.disconnect();
+    }
+  };
+
+  // clear screen function  
   const handleClear = () => {
     setObjects([]);
     setSelectedObjectIds([]);
@@ -81,6 +97,30 @@ export default function App() {
   useEffect(() => {
     // removes preload class to reenable transitions after initial loading    
     document.body.classList.remove('preload');
+    // initializes user state based on localStorage data
+    const storedUser = localStorage.getItem('livedrawUser');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error('Invalid stored user', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // sends authentication data to server when socket connects
+    socket.auth = { user };
+
+    socket.on('connect', () => {
+      socket.emit('authenticate', { profile: user, token: user.token });
+    });
+
+    socket.on('authenticated', (profile) => {
+      console.log('Authenticated user:', profile?.email || profile?.name);
+    });
 
     // waits for server updates, then sends changes to canvas    
     socket.on('loadState', ({ objects: serverObjects, name }) => {
@@ -125,7 +165,7 @@ export default function App() {
         }
         return obj;
       }));
-    })
+    });
 
     socket.on('deleteObjects', (ids) => {
       setObjects((prev) => prev.filter(obj => !ids.includes(obj.id)));
@@ -136,8 +176,8 @@ export default function App() {
       setSelectedObjectIds([]);
     });
 
-    // creates popup alerts for the client
-    socket.on('canvasSaved', ({ name, fileName }) => {
+    // creates popup alerts for the client    
+    socket.on('canvasSaved', ({ name }) => {
       alert(`Canvas "${name}" saved successfully!`);
       // updates drawing title on-screen before exiting
       setCurrentDrawingTitle(name);
@@ -159,6 +199,8 @@ export default function App() {
     socket.connect();
 
     return () => {
+      socket.off('connect');
+      socket.off('authenticated');
       socket.off('loadState');
       socket.off('addObject');
       socket.off('updateObject');
@@ -168,8 +210,11 @@ export default function App() {
       socket.off('canvasSaved');
       socket.off('saveError');
       socket.off('loadError');
+      if (socket.connected) {
+        socket.disconnect();
+      }
     };
-  }, []);
+  }, [user]);
 
   // changes editingText properties if options were changed midway
   // NOTE: would not prefer putting this useEffect here, but this file 
@@ -180,8 +225,23 @@ export default function App() {
     }
   }, [fontSize, textColor]);
 
+  if (!user) {
+    return <Welcome onSignIn={handleSignIn} />;
+  }
+
   return (
     <div className="app">
+      <header className="header">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div>
+            <h1>{currentView === 'gallery' ? 'Canvas Gallery' : currentDrawingTitle}</h1>
+            <p style={{ margin: 0, opacity: 0.75 }}>Signed in as {user.name || user.email}</p>
+          </div>
+          <button onClick={handleSignOut} style={{ padding: '8px 14px', borderRadius: '8px', cursor: 'pointer' }}>
+            Sign out
+          </button>
+        </div>
+      </header>
       {currentView === 'gallery' ? (
         <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} />
       ) : (
