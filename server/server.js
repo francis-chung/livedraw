@@ -1,6 +1,7 @@
 // imports dotenv module and calls it immediately
 // loads .env file variables into process.env
-require('dotenv').config();
+// path ensures the correct directory is accessed for .env file
+require('dotenv').config({ path: require('path').join('server', '.env') });
 // a helper on top of http that handles requests easier
 const express = require('express');
 
@@ -16,16 +17,19 @@ const fs = require('fs');
 // path utility helps build file paths safely across different OS
 const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const server = http.createServer(app);
 
-// accesses environment variable (default configuration) for port, with fallback
-const PORT = process.env.PORT || 3001;
+// accesses environment variable (default configuration) for port
+const PORT = process.env.PORT;
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 // provides access to google verification
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+const SESSION_SECRET = process.env.SESSION_SECRET;
 
 // opens a live channel when user connects
 // 5173: default frontend port for vite
@@ -191,8 +195,6 @@ io.on('connection', (socket) => {
     // reads data sent by client during handshake connection
     // active when socket first connects, and user is already signed in
     if (socket.handshake.auth?.user) {
-        // COPILOT: For handshake auth, we assume the user was already verified on previous connection
-        // In production, you might want to re-verify or use a session token
         setUser(socket, socket.handshake.auth.user);
         console.log('authenticated via handshake:', socket.user.email || socket.user.name || socket.user.sub);
     }
@@ -211,11 +213,30 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // creates a session token signed by session secret for authenticity verification later
+        const sessionToken = jwt.sign(
+            { sub: verifiedProfile.sub, email: verifiedProfile.email },
+            SESSION_SECRET,
+            { expiresIn: '7d' }
+        );
+
         setUser(socket, verifiedProfile);
         console.log('authenticated user:', verifiedProfile.email || verifiedProfile.name || verifiedProfile.sub);
+        socket.emit('sessionToken', sessionToken);
     });
 
-    // emits current state of canvas
+    socket.on('verifySession', async ({ sessionToken }) => {
+        try {
+            // tries to decode token by checking signature and expiration and decoding payload
+            const decoded = jwt.verify(sessionToken, SESSION_SECRET);
+            setUser(socket, { sub: decoded.sub, email: decoded.email });
+            socket.emit('sessionVerified', true);
+        } catch (error) {
+            socket.emit('authenticationError', 'Session expired or invalid');
+        }
+    })
+
+    // emits current state of canvas    
     socket.emit('loadState', {
         objects: []
     });
