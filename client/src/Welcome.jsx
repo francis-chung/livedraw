@@ -37,10 +37,15 @@ export default function Welcome({ onSignIn }) {
                 window.clearInterval(intervalId);
                 // registers app with google
                 // callback function receives JWT credential
-                window.google.accounts.id.initialize({
-                    client_id: CLIENT_ID,
-                    callback: handleCredentialResponse,
-                });
+                // also ensures that GSI is initialized only once, in case of 
+                // double-mounting in Strict Mode 
+                if (!window.__gsi_initialized) {
+                    window.google.accounts.id.initialize({
+                        client_id: CLIENT_ID,
+                        callback: handleCredentialResponse,
+                    });
+                    window.__gsi_initialized = true;
+                }
 
                 // inserts google sign-in button 
                 window.google.accounts.id.renderButton(
@@ -80,7 +85,7 @@ export default function Welcome({ onSignIn }) {
     return (
         <div className="welcome-page">
             <div className="welcome-card">
-                <h1>Welcome to LiveDraw</h1>
+                <h1>Welcome to Livedraw</h1>
                 <p>Sign in with Google to keep your canvases tied to your account and resume work later.</p>
 
                 <div id="google-signin-button" className="google-button" />

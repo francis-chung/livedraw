@@ -10,6 +10,7 @@ import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
 import Gallery from './Gallery.jsx';
 import Welcome from './Welcome.jsx';
+import { ConfirmSignOut } from './Dialogs.jsx';
 
 export default function App() {
   const stageRef = useRef(null);
@@ -31,6 +32,7 @@ export default function App() {
   const [currentCanvasName, setCurrentCanvasName] = useState(null);
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const [user, setUser] = useState(null);
+  const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
   const pendingNavigationViewRef = useRef(null);
 
   const handleSignIn = ({ profile, token }) => {
@@ -39,9 +41,24 @@ export default function App() {
     setUser(authUser);
   };
 
+  const handleSignOutRequest = () => {
+    setIsSignOutPromptOpen(true);
+  };
+
+  const handleConfirmSignOut = () => {
+    setIsSignOutPromptOpen(false);
+    handleSignOut();
+    sidebarRef.current?.closeSidebar();
+  };
+
+  const handleCancelSignOut = () => {
+    setIsSignOutPromptOpen(false);
+  };
+
   const handleSignOut = () => {
     localStorage.removeItem('livedrawUser');
     setUser(null);
+    window.google.accounts.id.cancel();
     if (socket.connected) {
       socket.disconnect();
     }
@@ -263,8 +280,18 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <SidebarMenu user={user} onGalleryClick={handleGalleryClick} ref={sidebarRef} />
+        <SidebarMenu
+          user={user}
+          onGalleryClick={handleGalleryClick}
+          onSignOutRequest={handleSignOutRequest}
+          currentView={currentView}
+          ref={sidebarRef} />
       </header>
+
+      {isSignOutPromptOpen && <ConfirmSignOut
+        handleCancelSignOut={handleCancelSignOut}
+        handleConfirmSignOut={handleConfirmSignOut} />
+      }
       {currentView === 'gallery' ? (
         <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} onSignOut={handleSignOut} />
       ) : (

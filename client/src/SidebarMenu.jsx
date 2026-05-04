@@ -4,7 +4,7 @@ import DarkMode from './DarkMode.jsx';
 
 // forwardRef enables a ref to be passed into function
 // allows parent components to access functions of child components
-const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOut }, ref) {
+const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOutRequest, currentView }, ref) {
     // both states necessary for smooth CSS transition animations      
     const [isOpen, setIsOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
@@ -58,16 +58,16 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
                                 ×
                             </button>
                         </div>
-                        <div className="sidebar-settings">
+                        <div className="sidebar-settings settings">
                             <h3>Settings</h3>
                             <DarkMode />
-                            <button className="gallery-button" onClick={onGalleryClick}>
+                            {currentView === "canvas" && <button className="gallery-button" onClick={onGalleryClick}>
                                 Gallery
-                            </button>
+                            </button>}
                         </div>
-                        <div className="sidebar-settings">
+                        <div className="login-info settings">
                             <h3>Signed in as {user.name || user.email}</h3>
-                            <button className="sign-out" onClick={onSignOut}>
+                            <button className="sign-out" onClick={onSignOutRequest}>
                                 Sign out
                             </button>
                         </div>

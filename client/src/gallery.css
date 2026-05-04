@@ -1,3 +1,5 @@
+@import './App.css';
+
 .gallery {
   display: flex;
   flex-direction: column;
@@ -10,8 +12,9 @@
   justify-content: center;
   align-items: center;
   padding: 1rem;
-  background-color: #f5f5f5;
-  border-bottom: 1px solid #ddd;
+  background-color: var(--background-color);
+  border-bottom: 1px solid var(--gallery-border);
+  transition: background 0.3s, border-bottom 0.3s;
 }
 
 .gallery-header h1 {
@@ -36,7 +39,7 @@
 }
 
 .gallery-content:hover {
-  scrollbar-color: #999 #f5f5f5;
+  scrollbar-color: #999 var(--background-color);
 }
 
 /* implementations for webkit browsers */
@@ -77,11 +80,12 @@ when width <= 720px, create only one grid column */
 }
 
 .canvas-item {
-  border: 1px solid #ddd;
+  border: 1px solid var(--gallery-border);
   border-radius: 8px;
   padding: 1rem;
   text-align: center;
-  background-color: #fff;
+  background-color: var(--background-color);
+  transition: background 0.3s, border 0.3s;
 }
 
 .canvas-item h3 {
@@ -92,9 +96,10 @@ when width <= 720px, create only one grid column */
   margin-bottom: 1rem;
   display: flex;
   justify-content: center;
-  border: 1px solid #ddd;
+  background-color: var(--canvas-background);
   border-radius: 4px;
   overflow: hidden;
+  transition: background 0.3s;
 }
 
 .canvas-item .buttons {
