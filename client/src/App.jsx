@@ -103,11 +103,28 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    socket.auth = { user };
+    socket.auth = {
+      user,
+      sessionToken: user.sessionToken
+    };
 
     socket.on('connect', () => {
-      socket.emit('authenticate', { profile: user, token: user.token });
+      if (user.sessionToken) {
+        socket.emit('verifySession', { sessionToken: user.sessionToken });
+      } else {
+        socket.emit('authenticate', { profile: user, token: user.token });
+      }
     });
+
+    socket.on('sessionToken', (sessionToken) => {
+      const updatedUser = { ...user, sessionToken };
+      localStorage.setItem('livedrawUser', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    })
+
+    socket.on('sessionVerified', () => {
+      console.log('Session verified successfully');
+    })
 
     socket.on('authenticated', (profile) => {
       console.log('Authenticated user:', profile?.email || profile?.name);
