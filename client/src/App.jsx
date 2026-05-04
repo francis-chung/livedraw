@@ -10,6 +10,7 @@ import Textbox from './Textbox.jsx';
 import Toolbar from './Toolbar.jsx';
 import Gallery from './Gallery.jsx';
 import Welcome from './Welcome.jsx';
+import { ConfirmSignOut } from './Dialogs.jsx';
 
 export default function App() {
   const stageRef = useRef(null);
@@ -57,6 +58,7 @@ export default function App() {
   const handleSignOut = () => {
     localStorage.removeItem('livedrawUser');
     setUser(null);
+    window.google.accounts.id.cancel();
     if (socket.connected) {
       socket.disconnect();
     }
@@ -266,18 +268,10 @@ export default function App() {
           ref={sidebarRef} />
       </header>
 
-      {isSignOutPromptOpen && (
-        <div className="confirm-modal-backdrop" onClick={handleCancelSignOut}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="signout-title" onClick={(e) => e.stopPropagation()}>
-            <h2 id="signout-title">Are you sure?</h2>
-            <p>Signing out will end your session and disconnect you from Livedraw.</p>
-            <div className="modal-actions">
-              <button className="modal-button cancel" onClick={handleCancelSignOut}>Cancel</button>
-              <button className="modal-button confirm" onClick={handleConfirmSignOut}>Sign out</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {isSignOutPromptOpen && <ConfirmSignOut
+        handleCancelSignOut={handleCancelSignOut}
+        handleConfirmSignOut={handleConfirmSignOut} />
+      }
       {currentView === 'gallery' ? (
         <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} onSignOut={handleSignOut} />
       ) : (

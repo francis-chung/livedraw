@@ -28,10 +28,13 @@ export default function Welcome({ onSignIn }) {
         const intervalId = window.setInterval(() => {
             if (window.google?.accounts?.id) {
                 window.clearInterval(intervalId);
-                window.google.accounts.id.initialize({
-                    client_id: CLIENT_ID,
-                    callback: handleCredentialResponse,
-                });
+                if (!window.__gsi_initialized) {
+                    window.google.accounts.id.initialize({
+                        client_id: CLIENT_ID,
+                        callback: handleCredentialResponse,
+                    });
+                    window.__gsi_initialized = true;
+                }
 
                 window.google.accounts.id.renderButton(
                     document.getElementById('google-signin-button'),
@@ -69,7 +72,7 @@ export default function Welcome({ onSignIn }) {
     return (
         <div className="welcome-page">
             <div className="welcome-card">
-                <h1>Welcome to LiveDraw</h1>
+                <h1>Welcome to Livedraw</h1>
                 <p>Sign in with Google to keep your canvases tied to your account and resume work later.</p>
 
                 <div id="google-signin-button" className="google-button" />
