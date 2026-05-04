@@ -84,7 +84,7 @@
     cursor: pointer;
     text-align: left;
     font-size: 14px;
-    transition: background 0.2s, transform 0.1s;
+    transition: transform 0.15s ease, background 0.2s ease;
 }
 
 .settings button:hover {

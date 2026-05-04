@@ -31,12 +31,27 @@ export default function App() {
   const [currentCanvasName, setCurrentCanvasName] = useState(null);
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const [user, setUser] = useState(null);
+  const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
   const pendingNavigationViewRef = useRef(null);
 
   const handleSignIn = ({ profile, token }) => {
     const authUser = { ...profile, token };
     localStorage.setItem('livedrawUser', JSON.stringify(authUser));
     setUser(authUser);
+  };
+
+  const handleSignOutRequest = () => {
+    setIsSignOutPromptOpen(true);
+  };
+
+  const handleConfirmSignOut = () => {
+    setIsSignOutPromptOpen(false);
+    handleSignOut();
+    sidebarRef.current?.closeSidebar();
+  };
+
+  const handleCancelSignOut = () => {
+    setIsSignOutPromptOpen(false);
   };
 
   const handleSignOut = () => {
@@ -246,9 +261,23 @@ export default function App() {
         <SidebarMenu
           user={user}
           onGalleryClick={handleGalleryClick}
+          onSignOutRequest={handleSignOutRequest}
           currentView={currentView}
           ref={sidebarRef} />
       </header>
+
+      {isSignOutPromptOpen && (
+        <div className="confirm-modal-backdrop" onClick={handleCancelSignOut}>
+          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="signout-title" onClick={(e) => e.stopPropagation()}>
+            <h2 id="signout-title">Are you sure?</h2>
+            <p>Signing out will end your session and disconnect you from Livedraw.</p>
+            <div className="modal-actions">
+              <button className="modal-button cancel" onClick={handleCancelSignOut}>Cancel</button>
+              <button className="modal-button confirm" onClick={handleConfirmSignOut}>Sign out</button>
+            </div>
+          </div>
+        </div>
+      )}
       {currentView === 'gallery' ? (
         <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} onSignOut={handleSignOut} />
       ) : (

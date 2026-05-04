@@ -2,7 +2,7 @@ import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import './sidebarMenu.css';
 import DarkMode from './DarkMode.jsx';
 
-const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOut, currentView }, ref) {
+const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOutRequest, currentView }, ref) {
     const [isOpen, setIsOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
 
@@ -60,7 +60,7 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
                         </div>
                         <div className="login-info settings">
                             <h3>Signed in as {user.name || user.email}</h3>
-                            <button className="sign-out" onClick={onSignOut}>
+                            <button className="sign-out" onClick={onSignOutRequest}>
                                 Sign out
                             </button>
                         </div>
