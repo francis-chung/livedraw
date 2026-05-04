@@ -44,6 +44,7 @@
     z-index: 100;
     display: flex;
     flex-direction: column;
+    gap: 1rem;
     padding: 1.25rem;
     transform: translateX(100%);
     transition: background 0.3s;
@@ -61,8 +62,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
 }
 
 .sidebar-close {
@@ -73,6 +72,27 @@
     cursor: pointer;
     color: var(--text-color);
     transition: color 0.3s;
+}
+
+.settings button {
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    background: var(--sidebar-button);
+    color: var(--text-color);
+    cursor: pointer;
+    text-align: left;
+    font-size: 14px;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.settings button:hover {
+    background: var(--sidebar-button-hover);
+}
+
+.settings button:active {
+    transform: scale(0.98);
 }
 
 .sidebar-settings {
@@ -91,32 +111,24 @@
     opacity: 0.7;
 }
 
-.sidebar-settings button {
-    width: 100%;
-    padding: 10px 12px;
-    border: none;
-    border-radius: 6px;
-    background: var(--sidebar-button);
+.login-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.login-info h3 {
+    margin: 0 0 6px 0;
+    font-size: 0.9rem;
     color: var(--text-color);
-    cursor: pointer;
-    text-align: left;
-    font-size: 14px;
-    transition: background 0.2s, transform 0.1s;
+    opacity: 0.5;
 }
 
-.sidebar-settings button:hover {
-    background: var(--sidebar-button-hover);
-}
-
-.sidebar-settings button:active {
-    transform: scale(0.98);
-}
-
-.sidebar-settings button.sign-out {
+.login-info button.sign-out {
     color: #dc3545;
 }
 
-.sidebar-settings button.sign-out:hover {
+.login-info button.sign-out:hover {
     background: rgba(220, 53, 69, 0.1);
 }
 

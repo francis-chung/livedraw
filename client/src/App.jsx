@@ -243,7 +243,11 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <SidebarMenu user={user} onGalleryClick={handleGalleryClick} ref={sidebarRef} />
+        <SidebarMenu
+          user={user}
+          onGalleryClick={handleGalleryClick}
+          currentView={currentView}
+          ref={sidebarRef} />
       </header>
       {currentView === 'gallery' ? (
         <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} onSignOut={handleSignOut} />
