@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').join('server', '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const supabase = require('./supabase/supabaseClient');
 
 const app = express();
 const server = http.createServer(app);
@@ -88,54 +89,115 @@ function joinCanvas(socket, name) {
     return getCanvasState(socket.user.sub, name);
 }
 
-function saveCanvas(userId, name, objects) {
-    const userDir = path.join(SAVES_DIR, userId);
-    if (!fs.existsSync(userDir)) {
-        fs.mkdirSync(userDir, { recursive: true });
+// function saveCanvas(userId, name, objects) {
+//     const userDir = path.join(SAVES_DIR, userId);
+//     if (!fs.existsSync(userDir)) {
+//         fs.mkdirSync(userDir, { recursive: true });
+//     }
+//     const fileName = `${name}.json`;
+//     const filePath = path.join(userDir, fileName);
+//     const data = JSON.stringify(objects, null, 2);
+//     fs.writeFileSync(filePath, data);
+//     return fileName;
+// }
+
+async function saveCanvas(userId, name, objects) {
+    let { data: canvas } = await supabase
+        .from('canvases')
+        .select('*')
+        .eq('owner_id', userId)
+        .eq('name', name)
+        .single();
+    if (!canvas) {
+        const res = await supabase
+            .from('canvases')
+            .insert({ owner_id: userId, name })
+            .select()
+            .single();
+        canvas = res.data;
     }
-    const fileName = `${name}.json`;
-    const filePath = path.join(userDir, fileName);
-    const data = JSON.stringify(objects, null, 2);
-    fs.writeFileSync(filePath, data);
-    return fileName;
+    await supabase
+        .from('canvas_data')
+        .upsert({
+            canvas_id: canvas.id,
+            objects
+        });
+    return canvas.id;
 }
 
-function loadCanvas(userId, name) {
-    const userDir = path.join(SAVES_DIR, userId);
-    const fileName = `${name}.json`;
-    const filePath = path.join(userDir, fileName);
-    if (fs.existsSync(filePath)) {
-        const data = fs.readFileSync(filePath, 'utf8');
-        const loadedObjects = JSON.parse(data);
-        const key = `${userId}:${name}`;
-        canvasStates[key] = loadedObjects;
-        return loadedObjects;
-    }
-    return null;
+// function loadCanvas(userId, name) {
+//     const userDir = path.join(SAVES_DIR, userId);
+//     const fileName = `${name}.json`;
+//     const filePath = path.join(userDir, fileName);
+//     if (fs.existsSync(filePath)) {
+//         const data = fs.readFileSync(filePath, 'utf8');
+//         const loadedObjects = JSON.parse(data);
+//         const key = `${userId}:${name}`;
+//         canvasStates[key] = loadedObjects;
+//         return loadedObjects;
+//     }
+//     return null;
+// }
+
+async function loadCanvas(userId, name) {
+    const { data: canvas } = await supabase
+        .from('canvases')
+        .select('*')
+        .eq('owner_id', userId)
+        .eq('name', name)
+        .single();
+    if (!canvas) return null;
+    const { data } = await supabase
+        .from('canvas_data')
+        .select('objects')
+        .eq('canvas_id', canvas.id)
+        .single();
+    return data?.objects || [];
 }
 
-function getSavedCanvases(userId) {
-    const userDir = path.join(SAVES_DIR, userId);
-    if (!fs.existsSync(userDir)) {
-        return [];
-    }
-    const files = fs.readdirSync(userDir);
-    return files.filter(file => file.endsWith('.json')).map(file => {
-        const name = file.replace('.json', '');
-        const loadedObjects = loadCanvas(userId, name);
-        return { name, objects: loadedObjects };
-    });
+// function getSavedCanvases(userId) {
+//     const userDir = path.join(SAVES_DIR, userId);
+//     if (!fs.existsSync(userDir)) {
+//         return [];
+//     }
+//     const files = fs.readdirSync(userDir);
+//     return files.filter(file => file.endsWith('.json')).map(file => {
+//         const name = file.replace('.json', '');
+//         const loadedObjects = loadCanvas(userId, name);
+//         return { name, objects: loadedObjects };
+//     });
+// }
+
+async function getSavedCanvases(userId) {
+    const { data } = await supabase
+        .from('canvases')
+        .select('id, name');
+    return data;
 }
 
-function deleteCanvas(userId, name) {
-    const userDir = path.join(SAVES_DIR, userId);
-    const fileName = `${name}.json`;
-    const filePath = path.join(userDir, fileName);
-    if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        return true;
-    }
-    throw new Error(`Canvas ${name} not found`);
+// function deleteCanvas(userId, name) {
+//     const userDir = path.join(SAVES_DIR, userId);
+//     const fileName = `${name}.json`;
+//     const filePath = path.join(userDir, fileName);
+//     if (fs.existsSync(filePath)) {
+//         fs.unlinkSync(filePath);
+//         return true;
+//     }
+//     throw new Error(`Canvas ${name} not found`);
+// }
+
+async function deleteCanvas(userId, name) {
+    const { data: canvas } = await supabase
+        .from('canvases')
+        .select('*')
+        .eq('owner_id', userId)
+        .eq('name', name)
+        .single();
+    if (!canvas) throw new Error('Canvas not found');
+    await supabase
+        .from('canvases')
+        .delete()
+        .eq('id', canvas.id);
 }
 
 io.on('connection', (socket) => {
