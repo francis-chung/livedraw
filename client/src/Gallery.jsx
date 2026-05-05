@@ -37,6 +37,11 @@ export default function Gallery({ setCurrentView, onNewCanvas }) {
             setSavedCanvases(canvases);
         });
 
+        socket.on('savedCanvasesError', (error) => {
+            alert(`Error loading saved canvases: ${error}`);
+            setSavedCanvases([]);
+        });
+
         socket.on('canvasDeleted', (name) => {
             alert(`Canvas "${name}" deleted.`);
             socket.emit('getSavedCanvases');
@@ -48,6 +53,7 @@ export default function Gallery({ setCurrentView, onNewCanvas }) {
 
         return () => {
             socket.off('savedCanvases');
+            socket.off('savedCanvasesError');
             socket.off('canvasDeleted');
             socket.off('deleteError');
         };

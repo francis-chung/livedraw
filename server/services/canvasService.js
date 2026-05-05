@@ -1,8 +1,12 @@
-import { supabase } from '../supabase/supabaseClient.js';
+const supabase = require('../supabase/supabaseClient');
 
-export async function createCanvas(userId, title) {
+async function createCanvas(userId, title) {
     return await supabase.from('canvases').insert({
-        ownerId: userId,
+        owner_id: userId,
         title
     });
 }
+
+module.exports = {
+    createCanvas
+};
