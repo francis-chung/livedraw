@@ -96,7 +96,6 @@ async function saveCanvas(supabase, userId, name, objects) {
         }
         canvas = data;
     }
-    console.log(objects);
 
     const { data: existingData, error: existingDataError } = await supabase
         .from('canvas_data')
@@ -107,12 +106,27 @@ async function saveCanvas(supabase, userId, name, objects) {
         throw existingDataError;
     }
 
-    const { error: updateError } = await supabase
-        .from('canvas_data')
-        .upsert({ objects })
-        .eq('canvas_id', canvas.id);
-    if (updateError) {
-        throw updateError;
+    if (!existingData) {
+        const { error: insertError } = await supabase
+            .from('canvas_data')
+            .insert({
+                canvas_id: canvas.id,
+                objects
+            });
+        if (insertError) {
+            throw insertError;
+        }
+    } else {
+        const { error: updateError } = await supabase
+            .from('canvas_data')
+            .update({
+                canvas_id: canvas.id,
+                objects
+            })
+            .eq('canvas_id', canvas.id);
+        if (updateError) {
+            throw updateError;
+        }
     }
 
     return canvas.id;
