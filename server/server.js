@@ -3,19 +3,12 @@ const path = require('path');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { OAuth2Client } = require('google-auth-library');
-const jwt = require('jsonwebtoken');
-const createSupabaseClient = require('./supabase/supabaseClient');
+const { createSupabaseClient, verifySupabaseToken } = require('./supabase/supabaseClient');
 
 const app = express();
 const server = http.createServer(app);
 
 const PORT = process.env.PORT || 3001;
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-
-const SESSION_SECRET = process.env.SESSION_SECRET;
 
 const io = new Server(server, {
     cors: {
@@ -28,16 +21,21 @@ const canvasStates = {};
 
 async function setUser(socket, user) {
     socket.user = user;
-    socket.supabase = createSupabaseClient(user.sub);
+    socket.supabase = createSupabaseClient(socket.accessToken);
     const { data, error } = await socket.supabase
         .from('users')
         .upsert({
-            id: user.sub,
+            id: user.id,
             email: user.email,
             name: user.name,
             picture: user.picture
         })
         .select();
+    if (error) {
+        console.error('Error upserting user:', error);
+    } else {
+        console.log('User upserted successfully');
+    }
     socket.emit('authenticated', user);
 }
 
@@ -47,25 +45,6 @@ function requireAuth(socket, callback) {
         return false;
     }
     return true;
-}
-
-async function verifyGoogleToken(token) {
-    try {
-        const ticket = await client.verifyIdToken({
-            idToken: token,
-            audience: GOOGLE_CLIENT_ID,
-        });
-        const payload = ticket.getPayload();
-        return {
-            sub: payload.sub,
-            email: payload.email,
-            name: payload.name,
-            picture: payload.picture,
-        };
-    } catch (error) {
-        console.error('Token verification failed:', error);
-        return null;
-    }
 }
 
 function getCanvasState(userId, name) {
@@ -86,11 +65,11 @@ function leaveCurrentCanvas(socket) {
 
 function joinCanvas(socket, name) {
     leaveCurrentCanvas(socket);
-    const room = `canvas:${socket.user.sub}:${name}`;
+    const room = `canvas:${socket.user.id}:${name}`;
     socket.join(room);
     socket.currentRoom = room;
     socket.currentCanvas = name;
-    return getCanvasState(socket.user.sub, name);
+    return getCanvasState(socket.user.id, name);
 }
 
 async function saveCanvas(supabase, userId, name, objects) {
@@ -116,6 +95,7 @@ async function saveCanvas(supabase, userId, name, objects) {
         }
         canvas = data;
     }
+    console.log(objects);
 
     const { data: existingData, error: existingDataError } = await supabase
         .from('canvas_data')
@@ -161,6 +141,7 @@ async function loadCanvas(supabase, userId, name) {
 }
 
 async function getSavedCanvases(supabase, userId) {
+    console.log("what");
     const { data: canvases, error: canvasError } = await supabase
         .from('canvases')
         .select('id, name')
@@ -168,6 +149,7 @@ async function getSavedCanvases(supabase, userId) {
     if (canvasError) {
         throw canvasError;
     }
+    console.log("ok");
     if (!canvases || canvases.length === 0) {
         return [];
     }
@@ -226,64 +208,52 @@ async function deleteCanvas(supabase, userId, name) {
 
 io.on('connection', async (socket) => {
     console.log('a user connected on: ', socket.id);
-    socket.supabase = createSupabaseClient(socket.user?.sub);
+    socket.supabase = createSupabaseClient();
     socket.currentCanvas = null;
     socket.currentRoom = null;
     socket.user = null;
+    socket.accessToken = null;
 
-    if (socket.handshake.auth?.user) {
-        await setUser(socket, socket.handshake.auth.user);
-        console.log('authenticated via handshake:', socket.user.email || socket.user.name || socket.user.sub);
+    if (socket.handshake.auth?.accessToken) {
+        const verifiedUser = await verifySupabaseToken(socket.handshake.auth.accessToken);
+        if (verifiedUser) {
+            socket.accessToken = socket.handshake.auth.accessToken;
+            await setUser(socket, verifiedUser);
+            console.log('authenticated via handshake:', socket.user.email || socket.user.name || socket.user.id);
+        } else {
+            socket.emit('authenticationError', 'Invalid access token');
+        }
     }
 
-    socket.on('authenticate', async ({ profile, token }) => {
-        if (!token) {
-            socket.emit('authenticationError', 'Missing token');
+    socket.on('authenticate', async ({ accessToken }) => {
+        if (!accessToken) {
+            socket.emit('authenticationError', 'Missing access token');
             return;
         }
 
-        const verifiedProfile = await verifyGoogleToken(token);
-        if (!verifiedProfile) {
-            socket.emit('authenticationError', 'Invalid token');
+        const verifiedUser = await verifySupabaseToken(accessToken);
+        if (!verifiedUser) {
+            socket.emit('authenticationError', 'Invalid access token');
             return;
         }
 
-        const sessionToken = jwt.sign(
-            { sub: verifiedProfile.sub, email: verifiedProfile.email },
-            SESSION_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        await setUser(socket, verifiedProfile);
-        console.log('authenticated user:', verifiedProfile.email || verifiedProfile.name || verifiedProfile.sub);
-        socket.emit('sessionToken', sessionToken);
-    });
-
-    socket.on('verifySession', async ({ sessionToken }) => {
-        try {
-            const decoded = jwt.verify(sessionToken, SESSION_SECRET);
-            await setUser(socket, { sub: decoded.sub, email: decoded.email });
-            socket.emit('sessionVerified', true);
-        } catch (error) {
-            socket.emit('authenticationError', 'Session expired or invalid');
-        }
-    })
-
-    socket.emit('loadState', {
-        objects: []
+        socket.accessToken = accessToken;
+        await setUser(socket, verifiedUser);
+        console.log('authenticated user:', verifiedUser.email || verifiedUser.name || verifiedUser.id);
+        socket.emit('sessionVerified', true);
     });
 
     socket.on('addObject', (object) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
+        const objects = getCanvasState(socket.user.id, socket.currentCanvas);
         objects.push(object);
         socket.to(socket.currentRoom).emit('addObject', object);
     });
 
     socket.on('updateObject', (object) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
-        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        const objects = getCanvasState(socket.user.id, socket.currentCanvas);
+        const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = objects.map(obj =>
             obj.id === object.id ? object : obj
         );
@@ -292,8 +262,8 @@ io.on('connection', async (socket) => {
 
     socket.on('moveObjects', (ids, dp) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
-        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        const objects = getCanvasState(socket.user.id, socket.currentCanvas);
+        const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = objects.map((obj) => {
             if (!ids.includes(obj.id)) return obj;
             if (obj.type === 'stroke') {
@@ -319,15 +289,15 @@ io.on('connection', async (socket) => {
 
     socket.on('deleteObjects', (ids) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
-        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        const objects = getCanvasState(socket.user.id, socket.currentCanvas);
+        const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = objects.filter((obj) => !ids.includes(obj.id));
         socket.to(socket.currentRoom).emit('deleteObjects', ids);
     });
 
     socket.on('clear', () => {
         if (!socket.currentCanvas || !socket.user) return;
-        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = [];
         socket.to(socket.currentRoom).emit('clear');
     });
@@ -336,12 +306,12 @@ io.on('connection', async (socket) => {
         if (!requireAuth(socket)) return;
         try {
             const supabase = socket.supabase;
-            const key = `${socket.user.sub}:${name}`;
+            const key = `${socket.user.id}:${name}`;
             const objectsToSave = clientObjects || canvasStates[key] || [];
             canvasStates[key] = objectsToSave;
-            await saveCanvas(supabase, socket.user.sub, name, objectsToSave);
+            await saveCanvas(supabase, socket.user.id, name, objectsToSave);
             socket.emit('canvasSaved', name);
-            console.log(`Canvas saved as ${name} for user ${socket.user.sub}`);
+            console.log(`Canvas saved as ${name} for user ${socket.user.id}`);
         } catch (error) {
             console.error('Save canvas error:', error);
             socket.emit('saveError', error?.message || 'Unable to save canvas');
@@ -352,13 +322,13 @@ io.on('connection', async (socket) => {
         if (!requireAuth(socket)) return;
         try {
             const supabase = socket.supabase;
-            const loadedObjects = await loadCanvas(supabase, socket.user.sub, name);
+            const loadedObjects = await loadCanvas(supabase, socket.user.id, name);
             if (loadedObjects !== null) {
-                const key = `${socket.user.sub}:${name}`;
+                const key = `${socket.user.id}:${name}`;
                 canvasStates[key] = loadedObjects;
                 joinCanvas(socket, name);
                 socket.emit('loadState', { objects: loadedObjects, name });
-                console.log(`Canvas ${name} loaded in room ${socket.currentRoom} for user ${socket.user.sub}`);
+                console.log(`Canvas ${name} loaded in room ${socket.currentRoom} for user ${socket.user.id}`);
             } else {
                 socket.emit('loadError', `Canvas ${name} not found`);
             }
@@ -376,7 +346,7 @@ io.on('connection', async (socket) => {
         if (!requireAuth(socket)) return;
         try {
             const supabase = socket.supabase;
-            const canvases = await getSavedCanvases(supabase, socket.user.sub);
+            const canvases = await getSavedCanvases(supabase, socket.user.id);
             socket.emit('savedCanvases', canvases);
         } catch (error) {
             console.error('Get saved canvases error:', error);
@@ -388,11 +358,11 @@ io.on('connection', async (socket) => {
         if (!requireAuth(socket)) return;
         try {
             const supabase = socket.supabase;
-            await deleteCanvas(supabase, socket.user.sub, name);
+            await deleteCanvas(supabase, socket.user.id, name);
             socket.emit('canvasDeleted', name);
-            const canvases = await getSavedCanvases(socket.user.sub);
+            const canvases = await getSavedCanvases(supabase, socket.user.id);
             socket.emit('savedCanvases', canvases);
-            console.log(`Canvas ${name} deleted for user ${socket.user.sub}`);
+            console.log(`Canvas ${name} deleted for user ${socket.user.id}`);
         } catch (error) {
             console.error('Delete canvas error:', error);
             socket.emit('deleteError', error?.message || 'Unable to delete canvas');

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './App.css';
@@ -11,6 +12,9 @@ import Toolbar from './Toolbar.jsx';
 import Gallery from './Gallery.jsx';
 import Welcome from './Welcome.jsx';
 import { ConfirmSignOut } from './Dialogs.jsx';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export default function App() {
   const stageRef = useRef(null);
@@ -33,35 +37,88 @@ export default function App() {
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const [user, setUser] = useState(null);
   const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const pendingNavigationViewRef = useRef(null);
+  const supabaseRef = useRef(null);
 
-  const handleSignIn = ({ profile, token }) => {
-    const authUser = { ...profile, token };
-    localStorage.setItem('livedrawUser', JSON.stringify(authUser));
-    setUser(authUser);
-  };
+  // Initialize Supabase client
+  useEffect(() => {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  }, []);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        if (!supabaseRef.current) {
+          setIsCheckingSession(false);
+          return;
+        }
+
+        const { data: { session } } = await supabaseRef.current.auth.getSession();
+
+        if (session?.access_token && session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+            picture: session.user.user_metadata?.avatar_url || '',
+            accessToken: session.access_token
+          });
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      } finally {
+        setIsCheckingSession(false);
+      }
+    };
+
+    checkSession();
+
+    // Set up auth state listener
+    if (supabaseRef.current) {
+      const { data: { subscription } } = supabaseRef.current.auth.onAuthStateChange(
+        async (event, session) => {
+          if (event === 'SIGNED_IN' && session?.access_token) {
+            setUser({
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+              picture: session.user.user_metadata?.avatar_url || '',
+              accessToken: session.access_token
+            });
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            if (socket.connected) {
+              socket.disconnect();
+            }
+          }
+        }
+      );
+
+      return () => subscription?.unsubscribe();
+    }
+  }, []);
 
   const handleSignOutRequest = () => {
     setIsSignOutPromptOpen(true);
   };
 
-  const handleConfirmSignOut = () => {
+  const handleConfirmSignOut = async () => {
     setIsSignOutPromptOpen(false);
-    handleSignOut();
-    sidebarRef.current?.closeSidebar();
+    try {
+      if (supabaseRef.current) {
+        await supabaseRef.current.auth.signOut();
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   const handleCancelSignOut = () => {
     setIsSignOutPromptOpen(false);
-  };
-
-  const handleSignOut = () => {
-    localStorage.removeItem('livedrawUser');
-    setUser(null);
-    window.google.accounts.id.cancel();
-    if (socket.connected) {
-      socket.disconnect();
-    }
   };
 
   const handleClear = () => {
@@ -107,37 +164,18 @@ export default function App() {
 
   useEffect(() => {
     document.body.classList.remove('preload');
-    const storedUser = localStorage.getItem('livedrawUser');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error('Invalid stored user', err);
-      }
-    }
   }, []);
 
   useEffect(() => {
     if (!user) return;
 
     socket.auth = {
-      user,
-      sessionToken: user.sessionToken
+      accessToken: user.accessToken
     };
 
     socket.on('connect', () => {
-      if (user.sessionToken) {
-        socket.emit('verifySession', { sessionToken: user.sessionToken });
-      } else {
-        socket.emit('authenticate', { profile: user, token: user.token });
-      }
+      socket.emit('authenticate', { accessToken: user.accessToken });
     });
-
-    socket.on('sessionToken', (sessionToken) => {
-      const updatedUser = { ...user, sessionToken };
-      localStorage.setItem('livedrawUser', JSON.stringify(updatedUser));
-      setUser(updatedUser);
-    })
 
     socket.on('sessionVerified', () => {
       console.log('Session verified successfully');
@@ -149,7 +187,6 @@ export default function App() {
 
     socket.on('authenticationError', (error) => {
       console.error('Authentication error:', error);
-      localStorage.removeItem('livedrawUser');
       setUser(null);
       alert('Authentication failed. Please sign in again.');
     });
@@ -253,8 +290,18 @@ export default function App() {
     }
   }, [fontSize, textColor]);
 
+  if (isCheckingSession) {
+    return (
+      <div className="app">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
-    return <Welcome onSignIn={handleSignIn} />;
+    return <Welcome />;
   }
 
   return (
@@ -273,7 +320,7 @@ export default function App() {
         handleConfirmSignOut={handleConfirmSignOut} />
       }
       {currentView === 'gallery' ? (
-        <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} onSignOut={handleSignOut} />
+        <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} />
       ) : (
         <>
           <header className="header">
