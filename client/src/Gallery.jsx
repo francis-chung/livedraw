@@ -27,14 +27,10 @@ const scaleObject = (obj) => {
     return obj;
 };
 
-export default function Gallery({ setCurrentView, onNewCanvas }) {
+export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas }) {
     const [savedCanvases, setSavedCanvases] = useState([]);
 
     useEffect(() => {
-        const requestCanvases = () => {
-            socket.emit('getSavedCanvases');
-        };
-
         const onSavedCanvases = (canvases) => {
             setSavedCanvases(canvases);
         };
@@ -57,7 +53,6 @@ export default function Gallery({ setCurrentView, onNewCanvas }) {
         socket.on('savedCanvasesError', onSavedCanvasesError);
         socket.on('canvasDeleted', onCanvasDeleted);
         socket.on('deleteError', onDeleteError);
-        socket.on('authenticated', requestCanvases);
 
         return () => {
             socket.off('savedCanvases', onSavedCanvases);
@@ -66,6 +61,11 @@ export default function Gallery({ setCurrentView, onNewCanvas }) {
             socket.off('deleteError', onDeleteError);
         };
     }, []);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        socket.emit('getSavedCanvases');
+    }, [isAuthenticated]);
 
     const handleLoadCanvas = (name) => {
         socket.emit('loadCanvas', name);

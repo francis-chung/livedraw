@@ -38,6 +38,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const pendingNavigationViewRef = useRef(null);
   const supabaseRef = useRef(null);
 
@@ -183,6 +184,7 @@ export default function App() {
 
     const onAuthenticated = (profile) => {
       console.log('Authenticated user:', profile?.email || profile?.name);
+      setIsAuthenticated(true);
     };
 
     const onAuthenticationError = (error) => {
@@ -339,7 +341,10 @@ export default function App() {
         handleConfirmSignOut={handleConfirmSignOut} />
       }
       {currentView === 'gallery' ? (
-        <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} />
+        <Gallery
+          isAuthenticated={isAuthenticated}
+          setCurrentView={setCurrentView}
+          onNewCanvas={handleNewCanvas} />
       ) : (
         <>
           <header className="header">
