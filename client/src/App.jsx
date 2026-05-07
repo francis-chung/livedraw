@@ -173,25 +173,25 @@ export default function App() {
       accessToken: user.accessToken
     };
 
-    socket.on('connect', () => {
+    const onConnect = () => {
       socket.emit('authenticate', { accessToken: user.accessToken });
-    });
+    };
 
-    socket.on('sessionVerified', () => {
+    const onSessionVerified = () => {
       console.log('Session verified successfully');
-    })
+    };
 
-    socket.on('authenticated', (profile) => {
+    const onAuthenticated = (profile) => {
       console.log('Authenticated user:', profile?.email || profile?.name);
-    });
+    };
 
-    socket.on('authenticationError', (error) => {
+    const onAuthenticationError = (error) => {
       console.error('Authentication error:', error);
       setUser(null);
       alert('Authentication failed. Please sign in again.');
-    });
+    };
 
-    socket.on('loadState', ({ objects: serverObjects, name }) => {
+    const onLoadState = ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
       if (name) {
         setCurrentCanvasName(name);
@@ -199,19 +199,19 @@ export default function App() {
       } else {
         setCurrentCanvasName(null);
       }
-    });
+    };
 
-    socket.on('addObject', (object) => {
+    const onAddObject = (object) => {
       setObjects((prev) => [...prev, object]);
-    });
+    };
 
-    socket.on('updateObject', (object) => {
+    const onUpdateObject = (object) => {
       setObjects((prev) => prev.map(obj =>
         obj.id === object.id ? object : obj
       ));
-    });
+    };
 
-    socket.on('moveObjects', (ids, dp) => {
+    const onMoveObjects = (ids, dp) => {
       const idSet = new Set(ids);
       setObjects((prev) => prev.map((obj) => {
         if (!idSet.has(obj.id)) return obj;
@@ -233,18 +233,18 @@ export default function App() {
         }
         return obj;
       }));
-    });
+    };
 
-    socket.on('deleteObjects', (ids) => {
+    const onDeleteObjects = (ids) => {
       setObjects((prev) => prev.filter(obj => !ids.includes(obj.id)));
-    });
+    };
 
-    socket.on('clear', () => {
+    const onClear = () => {
       setObjects([]);
       setSelectedObjectIds([]);
-    });
+    };
 
-    socket.on('canvasSaved', (name) => {
+    const onCanvasSaved = (name) => {
       alert(`Canvas "${name}" saved successfully!`);
       setCurrentDrawingTitle(name);
       if (pendingNavigationViewRef.current) {
@@ -252,32 +252,51 @@ export default function App() {
         pendingNavigationViewRef.current = null;
         sidebarRef.current.closeSidebar();
       }
-    });
+    };
 
-    socket.on('saveError', (error) => {
+    const onSaveError = (error) => {
       pendingNavigationViewRef.current = null;
       alert(`Error saving canvas: ${error}`);
-    });
+    };
 
-    socket.on('loadError', (error) => {
+    const onLoadError = (error) => {
       alert(`Error loading canvas: ${error}`);
-    });
+    };
 
-    socket.connect();
+    socket.on('connect', onConnect);
+    socket.on('sessionVerified', onSessionVerified);
+    socket.on('authenticated', onAuthenticated);
+    socket.on('authenticationError', onAuthenticationError);
+    socket.on('loadState', onLoadState);
+    socket.on('addObject', onAddObject);
+    socket.on('updateObject', onUpdateObject);
+    socket.on('moveObjects', onMoveObjects);
+    socket.on('deleteObjects', onDeleteObjects);
+    socket.on('clear', onClear);
+    socket.on('canvasSaved', onCanvasSaved);
+    socket.on('saveError', onSaveError);
+    socket.on('loadError', onLoadError);
+
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      onConnect();
+    }
 
     return () => {
-      socket.off('connect');
-      socket.off('authenticated');
-      socket.off('authenticationError');
-      socket.off('loadState');
-      socket.off('addObject');
-      socket.off('updateObject');
-      socket.off('moveObjects');
-      socket.off('deleteObjects');
-      socket.off('clear');
-      socket.off('canvasSaved');
-      socket.off('saveError');
-      socket.off('loadError');
+      socket.off('connect', onConnect);
+      socket.off('sessionVerified', onSessionVerified);
+      socket.off('authenticated', onAuthenticated);
+      socket.off('authenticationError', onAuthenticationError);
+      socket.off('loadState', onLoadState);
+      socket.off('addObject', onAddObject);
+      socket.off('updateObject', onUpdateObject);
+      socket.off('moveObjects', onMoveObjects);
+      socket.off('deleteObjects', onDeleteObjects);
+      socket.off('clear', onClear);
+      socket.off('canvasSaved', onCanvasSaved);
+      socket.off('saveError', onSaveError);
+      socket.off('loadError', onLoadError);
       if (socket.connected) {
         socket.disconnect();
       }

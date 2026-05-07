@@ -31,31 +31,39 @@ export default function Gallery({ setCurrentView, onNewCanvas }) {
     const [savedCanvases, setSavedCanvases] = useState([]);
 
     useEffect(() => {
-        socket.emit('getSavedCanvases');
+        const requestCanvases = () => {
+            socket.emit('getSavedCanvases');
+        };
 
-        socket.on('savedCanvases', (canvases) => {
+        const onSavedCanvases = (canvases) => {
             setSavedCanvases(canvases);
-        });
+        };
 
-        socket.on('savedCanvasesError', (error) => {
+        const onSavedCanvasesError = (error) => {
             alert(`Error loading saved canvases: ${error}`);
             setSavedCanvases([]);
-        });
+        };
 
-        socket.on('canvasDeleted', (name) => {
+        const onCanvasDeleted = (name) => {
             alert(`Canvas "${name}" deleted.`);
             socket.emit('getSavedCanvases');
-        });
+        };
 
-        socket.on('deleteError', (error) => {
+        const onDeleteError = (error) => {
             alert(`Error deleting canvas: ${error}`);
-        });
+        };
+
+        socket.on('savedCanvases', onSavedCanvases);
+        socket.on('savedCanvasesError', onSavedCanvasesError);
+        socket.on('canvasDeleted', onCanvasDeleted);
+        socket.on('deleteError', onDeleteError);
+        socket.on('authenticated', requestCanvases);
 
         return () => {
-            socket.off('savedCanvases');
-            socket.off('savedCanvasesError');
-            socket.off('canvasDeleted');
-            socket.off('deleteError');
+            socket.off('savedCanvases', onSavedCanvases);
+            socket.off('savedCanvasesError', onSavedCanvasesError);
+            socket.off('canvasDeleted', onCanvasDeleted);
+            socket.off('deleteError', onDeleteError);
         };
     }, []);
 

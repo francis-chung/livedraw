@@ -4,6 +4,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { createSupabaseClient, verifySupabaseToken } = require('./supabase/supabaseClient');
+const { PassThrough } = require('stream');
 
 const app = express();
 const server = http.createServer(app);
@@ -141,7 +142,6 @@ async function loadCanvas(supabase, userId, name) {
 }
 
 async function getSavedCanvases(supabase, userId) {
-    console.log("what");
     const { data: canvases, error: canvasError } = await supabase
         .from('canvases')
         .select('id, name')
@@ -149,7 +149,6 @@ async function getSavedCanvases(supabase, userId) {
     if (canvasError) {
         throw canvasError;
     }
-    console.log("ok");
     if (!canvases || canvases.length === 0) {
         return [];
     }
