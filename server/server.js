@@ -1,8 +1,9 @@
 // imports dotenv module and calls it immediately
 // loads .env file variables into process.env
 // path ensures the correct directory is accessed for .env file
-require('dotenv').config({ path: require('path').join('server', '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 // a helper on top of http that handles requests easier
+const path = require('path');
 const express = require('express');
 
 // http: essential mail system that can send
@@ -12,24 +13,14 @@ const http = require('http');
 
 // socket: real-time, continuous communication
 const { Server } = require('socket.io');
-// filesystem: includes functions to read, write and manage files
-const fs = require('fs');
-// path utility helps build file paths safely across different OS
-const path = require('path');
-const { OAuth2Client } = require('google-auth-library');
-const jwt = require('jsonwebtoken');
+const { createSupabaseClient, verifySupabaseToken } = require('./supabase/supabaseClient');
+const { PassThrough } = require('stream');
 
 const app = express();
 const server = http.createServer(app);
 
 // accesses environment variable (default configuration) for port
-const PORT = process.env.PORT;
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-// provides access to google verification
-const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-
-const SESSION_SECRET = process.env.SESSION_SECRET;
+const PORT = process.env.PORT || 3001;
 
 // opens a live channel when user connects
 // 5173: default frontend port for vite
@@ -45,22 +36,26 @@ const io = new Server(server, {
 // used as a map, with canvas names as keys and objects as values
 const canvasStates = {};
 
-// builds path to folder named saves
-// __dirname: directory of file
-// path.join ensures correct separators based on OS
-const SAVES_DIR = path.join(__dirname, 'saves');
-
-// ensures saves directory exists
-// synchronous function waits for action to complete before 
-// proceeding to next line
-if (!fs.existsSync(SAVES_DIR)) {
-    fs.mkdirSync(SAVES_DIR);
-}
-
 // sets socket user on login or socket connect
 // must be called only after verification
-function setUser(socket, user) {
+// inserts or updates user profile in supabase
+async function setUser(socket, user) {
     socket.user = user;
+    socket.supabase = createSupabaseClient(socket.accessToken);
+    const { data, error } = await socket.supabase
+        .from('users')
+        .upsert({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            picture: user.picture
+        })
+        .select();
+    if (error) {
+        console.error('Error upserting user:', error);
+    } else {
+        console.log('User upserted successfully');
+    }
     socket.emit('authenticated', user);
 }
 
@@ -71,30 +66,6 @@ function requireAuth(socket, callback) {
         return false;
     }
     return true;
-}
-
-// validates google login token 
-async function verifyGoogleToken(token) {
-    try {
-        // uses google auth library's official method to check if: 
-        // 1. token is valid
-        // 2. token was issued for this app (based on audience)
-        const ticket = await client.verifyIdToken({
-            idToken: token,
-            audience: GOOGLE_CLIENT_ID,
-        });
-        // processes verified token and returns relevant details
-        const payload = ticket.getPayload();
-        return {
-            sub: payload.sub,
-            email: payload.email,
-            name: payload.name,
-            picture: payload.picture,
-        };
-    } catch (error) {
-        console.error('Token verification failed:', error);
-        return null;
-    }
 }
 
 // returns all objects of a specific canvas from a specific user
@@ -118,127 +89,218 @@ function joinCanvas(socket, name) {
     // ensures that any previous canvas is left before joining a new one
     leaveCurrentCanvas(socket);
     // type-prefixed custom for room naming
-    // rooms and canvasStates keys must have both user ID and canvas name
-    const room = `canvas:${socket.user.sub}:${name}`;
+    // rooms and canvasStates keys must have both user ID and canvas name    
+    const room = `canvas:${socket.user.id}:${name}`;
     socket.join(room);
     socket.currentRoom = room;
     socket.currentCanvas = name;
-    return getCanvasState(socket.user.sub, name);
+    return getCanvasState(socket.user.id, name);
 }
 
-// saves canvas data as JSON file
-function saveCanvas(userId, name, objects) {
-    const userDir = path.join(SAVES_DIR, userId);
-    if (!fs.existsSync(userDir)) {
-        // creates a new directory if necessary, as well as all other required directories
-        fs.mkdirSync(userDir, { recursive: true });
+// saves canvas and canvas data to supabase database
+async function saveCanvas(supabase, userId, name, objects) {
+    // checks if there is an existing canvas matching the current one
+    const { data: existingCanvas, error: fetchError } = await supabase
+        .from('canvases')
+        .select('id')
+        .eq('owner_id', userId)
+        .eq('name', name)
+        .maybeSingle();
+    if (fetchError) {
+        throw fetchError;
     }
-    const fileName = `${name}.json`;
-    const filePath = path.join(userDir, fileName);
-    // converts objects into JSON with indentation formatting    
-    const data = JSON.stringify(objects, null, 2);
-    // writes to disk; overwrites if file already exists
-    fs.writeFileSync(filePath, data);
-    return fileName;
-}
 
-// loads saved canvas
-function loadCanvas(userId, name) {
-    // reconstructs expected user directory, then file name and path
-    const userDir = path.join(SAVES_DIR, userId);
-    const fileName = `${name}.json`;
-    const filePath = path.join(userDir, fileName);
-    if (fs.existsSync(filePath)) {
-        // reads content files as a string
-        const data = fs.readFileSync(filePath, 'utf8');
-        const loadedObjects = JSON.parse(data);
-        const key = `${userId}:${name}`;
-        canvasStates[key] = loadedObjects;
-        return loadedObjects;
+    // if no existing canvas, insert one and save it
+    let canvas = existingCanvas;
+    if (!canvas) {
+        const { data, error: insertError } = await supabase
+            .from('canvases')
+            .insert({ owner_id: userId, name })
+            .select('id')
+            .single();
+        if (insertError) {
+            throw insertError;
+        }
+        canvas = data;
     }
-    return null;
+
+    // checks if data of current canvas is available, required for future branching
+    const { data: existingData, error: existingDataError } = await supabase
+        .from('canvas_data')
+        .select('*')
+        .eq('canvas_id', canvas.id)
+        .maybeSingle();
+    if (existingDataError) {
+        throw existingDataError;
+    }
+
+    // inserts data if no existing data is available
+    if (!existingData) {
+        const { error: insertError } = await supabase
+            .from('canvas_data')
+            .insert({
+                canvas_id: canvas.id,
+                objects
+            });
+        if (insertError) {
+            throw insertError;
+        }
+    } else { // updates data if existing data is already present
+        const { error: updateError } = await supabase
+            .from('canvas_data')
+            .update({
+                canvas_id: canvas.id,
+                objects
+            })
+            .eq('canvas_id', canvas.id);
+        if (updateError) {
+            throw updateError;
+        }
+    }
+
+    return canvas.id;
 }
 
-// returns list of names of saved canvases
-function getSavedCanvases(userId) {
-    const userDir = path.join(SAVES_DIR, userId);
-    if (!fs.existsSync(userDir)) {
+async function loadCanvas(supabase, userId, name) {
+    // checks if the canvas requested is available
+    const { data: canvas, error: canvasError } = await supabase
+        .from('canvases')
+        .select('id')
+        .eq('owner_id', userId)
+        .eq('name', name)
+        .maybeSingle();
+    if (canvasError) {
+        throw canvasError;
+    }
+    if (!canvas) return null;
+
+    // returns canvas data if canvas is available
+    const { data, error: dataError } = await supabase
+        .from('canvas_data')
+        .select('objects')
+        .eq('canvas_id', canvas.id)
+        .maybeSingle();
+    if (dataError) {
+        throw dataError;
+    }
+    return data?.objects || [];
+}
+
+async function getSavedCanvases(supabase, userId) {
+    // selects ids and names from all valid canvases
+    const { data: canvases, error: canvasError } = await supabase
+        .from('canvases')
+        .select('id, name')
+        .eq('owner_id', userId);
+    if (canvasError) {
+        throw canvasError;
+    }
+    // returns empty list if no canvases available
+    if (!canvases || canvases.length === 0) {
         return [];
     }
-    const files = fs.readdirSync(userDir);
-    return files.filter(file => file.endsWith('.json')).map(file => {
-        const name = file.replace('.json', '');
-        const loadedObjects = loadCanvas(userId, name);
-        return { name, objects: loadedObjects };
-    });
+
+    // selects canvas ids and objects to set up for canvas return
+    const canvasIds = canvases.map((canvas) => canvas.id);
+    const { data: dataRows, error: dataError } = await supabase
+        .from('canvas_data')
+        .select('canvas_id, objects')
+        .in('canvas_id', canvasIds);
+    if (dataError) {
+        throw dataError;
+    }
+
+    // creates a map from canvas ids to objects
+    const canvasDataMap = (dataRows || []).reduce((acc, row) => {
+        acc[row.canvas_id] = row.objects || [];
+        return acc;
+    }, {});
+
+    return canvases.map((canvas) => ({
+        id: canvas.id,
+        name: canvas.name,
+        objects: canvasDataMap[canvas.id] || []
+    }));
 }
 
-function deleteCanvas(userId, name) {
-    const userDir = path.join(SAVES_DIR, userId);
-    const fileName = `${name}.json`;
-    const filePath = path.join(userDir, fileName);
-    if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        return true;
+async function deleteCanvas(supabase, userId, name) {
+    // finds the canvas to be deleted
+    const { data: canvas, error: fetchError } = await supabase
+        .from('canvases')
+        .select('id')
+        .eq('owner_id', userId)
+        .eq('name', name)
+        .maybeSingle();
+    if (fetchError) {
+        throw fetchError;
     }
-    throw new Error(`Canvas ${name} not found`);
+    if (!canvas) {
+        throw new Error('Canvas not found');
+    }
+
+    // removes canvas data corresponding to canvas
+    const { error: deleteDataError } = await supabase
+        .from('canvas_data')
+        .delete()
+        .eq('canvas_id', canvas.id);
+    if (deleteDataError) {
+        throw deleteDataError;
+    }
+
+    // removes canvas itself
+    const { error: deleteCanvasError } = await supabase
+        .from('canvases')
+        .delete()
+        .eq('id', canvas.id);
+    if (deleteCanvasError) {
+        throw deleteCanvasError;
+    }
 }
 
 // once connection is established, activate socket emitters and listeners
 // runs on every connection being made
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
     console.log('a user connected on: ', socket.id);
+    socket.supabase = createSupabaseClient();
     socket.currentCanvas = null;
     socket.currentRoom = null;
     socket.user = null;
+    socket.accessToken = null;
 
+    // handshake is a negotiation between two parties to exchange info and ensure 
+    // communication is ready
     // reads data sent by client during handshake connection
     // active when socket first connects, and user is already signed in
-    if (socket.handshake.auth?.user) {
-        setUser(socket, socket.handshake.auth.user);
-        console.log('authenticated via handshake:', socket.user.email || socket.user.name || socket.user.sub);
+    if (socket.handshake.auth?.accessToken) {
+        // validates JWT access token 
+        const verifiedUser = await verifySupabaseToken(socket.handshake.auth.accessToken);
+        if (verifiedUser) { // sets up socket and user information
+            // access token: short-lived credential that authenticates API requests
+            socket.accessToken = socket.handshake.auth.accessToken;
+            await setUser(socket, verifiedUser);
+            console.log('authenticated via handshake:', socket.user.email || socket.user.name || socket.user.id);
+        } else {
+            socket.emit('authenticationError', 'Invalid access token');
+        }
     }
 
-    // used for when socket is already connected, then client sends request    
-    socket.on('authenticate', async ({ profile, token }) => {
-        if (!token) {
-            socket.emit('authenticationError', 'Missing token');
+    // used when authentication happens after connection
+    socket.on('authenticate', async ({ accessToken }) => {
+        if (!accessToken) {
+            socket.emit('authenticationError', 'Missing access token');
             return;
         }
 
-        // verifies token before proceeding
-        const verifiedProfile = await verifyGoogleToken(token);
-        if (!verifiedProfile) {
-            socket.emit('authenticationError', 'Invalid token');
+        const verifiedUser = await verifySupabaseToken(accessToken);
+        if (!verifiedUser) {
+            socket.emit('authenticationError', 'Invalid access token');
             return;
         }
 
-        // creates a session token signed by session secret for authenticity verification later
-        const sessionToken = jwt.sign(
-            { sub: verifiedProfile.sub, email: verifiedProfile.email },
-            SESSION_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        setUser(socket, verifiedProfile);
-        console.log('authenticated user:', verifiedProfile.email || verifiedProfile.name || verifiedProfile.sub);
-        socket.emit('sessionToken', sessionToken);
-    });
-
-    socket.on('verifySession', async ({ sessionToken }) => {
-        try {
-            // tries to decode token by checking signature and expiration and decoding payload
-            const decoded = jwt.verify(sessionToken, SESSION_SECRET);
-            setUser(socket, { sub: decoded.sub, email: decoded.email });
-            socket.emit('sessionVerified', true);
-        } catch (error) {
-            socket.emit('authenticationError', 'Session expired or invalid');
-        }
-    })
-
-    // emits current state of canvas    
-    socket.emit('loadState', {
-        objects: []
+        socket.accessToken = accessToken;
+        await setUser(socket, verifiedUser);
+        console.log('authenticated user:', verifiedUser.email || verifiedUser.name || verifiedUser.id);
+        socket.emit('sessionVerified', true);
     });
 
     // waits for this client to send data, then broadcasts to everyone else
@@ -246,15 +308,15 @@ io.on('connection', (socket) => {
     // from the correct room
     socket.on('addObject', (object) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
+        const objects = getCanvasState(socket.user.id, socket.currentCanvas);
         objects.push(object);
         socket.to(socket.currentRoom).emit('addObject', object);
     });
 
     socket.on('updateObject', (object) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
-        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        const objects = getCanvasState(socket.user.id, socket.currentCanvas);
+        const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = objects.map(obj =>
             obj.id === object.id ? object : obj
         );
@@ -263,8 +325,8 @@ io.on('connection', (socket) => {
 
     socket.on('moveObjects', (ids, dp) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
-        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        const objects = getCanvasState(socket.user.id, socket.currentCanvas);
+        const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = objects.map((obj) => {
             if (!ids.includes(obj.id)) return obj;
             if (obj.type === 'stroke') {
@@ -290,52 +352,57 @@ io.on('connection', (socket) => {
 
     socket.on('deleteObjects', (ids) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(socket.user.sub, socket.currentCanvas);
-        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        const objects = getCanvasState(socket.user.id, socket.currentCanvas);
+        const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = objects.filter((obj) => !ids.includes(obj.id));
         socket.to(socket.currentRoom).emit('deleteObjects', ids);
     });
 
     socket.on('clear', () => {
         if (!socket.currentCanvas || !socket.user) return;
-        const key = `${socket.user.sub}:${socket.currentCanvas}`;
+        const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = [];
         socket.to(socket.currentRoom).emit('clear');
     });
 
-    // this and several other events check authentication before proceeding
-    socket.on('saveCanvas', ({ name, objects: clientObjects }) => {
+    // this and several other events check authentication before proceeding    
+    socket.on('saveCanvas', async ({ name, objects: clientObjects }) => {
         if (!requireAuth(socket)) return;
         try {
-            const key = `${socket.user.sub}:${name}`;
-            // returns first truthy value in the list
+            // supabase client must be redefined properly to ensure 
+            // the access token is the right one
+            const supabase = socket.supabase;
+            const key = `${socket.user.id}:${name}`;
             const objectsToSave = clientObjects || canvasStates[key] || [];
             canvasStates[key] = objectsToSave;
-            const fileName = saveCanvas(socket.user.sub, name, objectsToSave);
+            await saveCanvas(supabase, socket.user.id, name, objectsToSave);
             // only sends a response to the requesting client            
             socket.emit('canvasSaved', name);
-            console.log(`Canvas saved as ${fileName} for user ${socket.user.sub}`);
+            console.log(`Canvas saved as ${name} for user ${socket.user.id}`);
         } catch (error) {
-            socket.emit('saveError', error.message);
+            console.error('Save canvas error:', error);
+            socket.emit('saveError', error?.message || 'Unable to save canvas');
         }
     });
 
-    socket.on('loadCanvas', (name) => {
+    socket.on('loadCanvas', async (name) => {
         if (!requireAuth(socket)) return;
         try {
-            const loadedObjects = loadCanvas(socket.user.sub, name);
+            const supabase = socket.supabase;
+            const loadedObjects = await loadCanvas(supabase, socket.user.id, name);
             if (loadedObjects !== null) {
-                const key = `${socket.user.sub}:${name}`;
+                const key = `${socket.user.id}:${name}`;
                 canvasStates[key] = loadedObjects;
                 joinCanvas(socket, name);
                 // only loads the state of the client that sent the request
                 socket.emit('loadState', { objects: loadedObjects, name });
-                console.log(`Canvas ${name} loaded in room ${socket.currentRoom} for user ${socket.user.sub}`);
+                console.log(`Canvas ${name} loaded in room ${socket.currentRoom} for user ${socket.user.id}`);
             } else {
                 socket.emit('loadError', `Canvas ${name} not found`);
             }
         } catch (error) {
-            socket.emit('loadError', error.message);
+            console.error('Load canvas error:', error);
+            socket.emit('loadError', error?.message || 'Unable to load canvas');
         }
     });
 
@@ -343,22 +410,30 @@ io.on('connection', (socket) => {
         leaveCurrentCanvas(socket);
     });
 
-    socket.on('getSavedCanvases', () => {
-        if (!requireAuth(socket)) return;
-        const canvases = getSavedCanvases(socket.user.sub);
-        socket.emit('savedCanvases', canvases);
-    });
-
-    socket.on('deleteCanvas', (name) => {
+    socket.on('getSavedCanvases', async () => {
         if (!requireAuth(socket)) return;
         try {
-            deleteCanvas(socket.user.sub, name);
-            socket.emit('canvasDeleted', name);
-            const canvases = getSavedCanvases(socket.user.sub);
+            const supabase = socket.supabase;
+            const canvases = await getSavedCanvases(supabase, socket.user.id);
             socket.emit('savedCanvases', canvases);
-            console.log(`Canvas ${name} deleted for user ${socket.user.sub}`);
         } catch (error) {
-            socket.emit('deleteError', error.message);
+            console.error('Get saved canvases error:', error);
+            socket.emit('savedCanvasesError', error?.message || 'Unable to retrieve saved canvases');
+        }
+    });
+
+    socket.on('deleteCanvas', async (name) => {
+        if (!requireAuth(socket)) return;
+        try {
+            const supabase = socket.supabase;
+            await deleteCanvas(supabase, socket.user.id, name);
+            socket.emit('canvasDeleted', name);
+            const canvases = await getSavedCanvases(supabase, socket.user.id);
+            socket.emit('savedCanvases', canvases);
+            console.log(`Canvas ${name} deleted for user ${socket.user.id}`);
+        } catch (error) {
+            console.error('Delete canvas error:', error);
+            socket.emit('deleteError', error?.message || 'Unable to delete canvas');
         }
     });
 

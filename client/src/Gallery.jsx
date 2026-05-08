@@ -28,34 +28,46 @@ const scaleObject = (obj) => {
     return obj;
 };
 
-export default function Gallery({ setCurrentView, onNewCanvas }) {
+export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas }) {
     const [savedCanvases, setSavedCanvases] = useState([]);
 
     useEffect(() => {
-        // requests list of saved canvases
-        // this initiates a chain reaction that causes savedCanvases to be called        
-        socket.emit('getSavedCanvases');
-
-        socket.on('savedCanvases', (canvases) => {
+        const onSavedCanvases = (canvases) => {
             setSavedCanvases(canvases);
-        });
+        };
 
-        // comes from chain reaction of socket connections initiated by handleDeleteCanvas 
-        socket.on('canvasDeleted', (name) => {
+        const onSavedCanvasesError = (error) => {
+            alert(`Error loading saved canvases: ${error}`);
+            setSavedCanvases([]);
+        };
+
+        const onCanvasDeleted = (name) => {
             alert(`Canvas "${name}" deleted.`);
             socket.emit('getSavedCanvases');
-        });
+        };
 
-        socket.on('deleteError', (error) => {
+        const onDeleteError = (error) => {
             alert(`Error deleting canvas: ${error}`);
-        });
+        };
+
+        socket.on('savedCanvases', onSavedCanvases);
+        socket.on('savedCanvasesError', onSavedCanvasesError);
+        socket.on('canvasDeleted', onCanvasDeleted);
+        socket.on('deleteError', onDeleteError);
 
         return () => {
-            socket.off('savedCanvases');
-            socket.off('canvasDeleted');
-            socket.off('deleteError');
+            socket.off('savedCanvases', onSavedCanvases);
+            socket.off('savedCanvasesError', onSavedCanvasesError);
+            socket.off('canvasDeleted', onCanvasDeleted);
+            socket.off('deleteError', onDeleteError);
         };
     }, []);
+
+    // uses source of truth from App.jsx to check if it should invoke socket emit
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        socket.emit('getSavedCanvases');
+    }, [isAuthenticated]);
 
     const handleLoadCanvas = (name) => {
         socket.emit('loadCanvas', name);

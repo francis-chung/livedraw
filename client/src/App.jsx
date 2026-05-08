@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './App.css';
@@ -11,6 +12,10 @@ import Toolbar from './Toolbar.jsx';
 import Gallery from './Gallery.jsx';
 import Welcome from './Welcome.jsx';
 import { ConfirmSignOut } from './Dialogs.jsx';
+
+// keys required to create supabase client
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export default function App() {
   const stageRef = useRef(null);
@@ -33,38 +38,99 @@ export default function App() {
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const [user, setUser] = useState(null);
   const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const pendingNavigationViewRef = useRef(null);
+  // uses ref because it survives re-renders
+  const supabaseRef = useRef(null);
 
-  const handleSignIn = ({ profile, token }) => {
-    const authUser = { ...profile, token };
-    localStorage.setItem('livedrawUser', JSON.stringify(authUser));
-    setUser(authUser);
-  };
+  // initialize supabase client
+  useEffect(() => {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  }, []);
+
+  // check for existing session on mount, and listens for auth changes later
+  useEffect(() => {
+    // checks whether supabase already has a saved login session
+    const checkSession = async () => {
+      try {
+        // if client not initialized
+        if (!supabaseRef.current) {
+          setIsCheckingSession(false);
+          return;
+        }
+
+        // obtains session from supabase, determines whether user was previously logged in
+        const { data: { session } } = await supabaseRef.current.auth.getSession();
+        // if access token and user are valid (login was already available)
+        if (session?.access_token && session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+            picture: session.user.user_metadata?.avatar_url || '',
+            accessToken: session.access_token
+          });
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      } finally { // runs whether or not an error was raised
+        setIsCheckingSession(false);
+      }
+    };
+
+    checkSession();
+
+    // set up auth state listener
+    if (supabaseRef.current) {
+      // invokes inside function whenever auth changes, such as sign in/out
+      // has branching depending on the event
+      const { data: { subscription } } = supabaseRef.current.auth.onAuthStateChange(
+        async (event, session) => {
+          if (event === 'SIGNED_IN' && session?.access_token) {
+            setUser({
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+              picture: session.user.user_metadata?.avatar_url || '',
+              accessToken: session.access_token
+            });
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            // disconnects to remove access to secure data
+            if (socket.connected) {
+              socket.disconnect();
+            }
+          }
+        }
+      );
+
+      // removes auth listener to prevent duplicates or leaks when component unmounts
+      return () => subscription?.unsubscribe();
+    }
+  }, []);
 
   const handleSignOutRequest = () => {
     setIsSignOutPromptOpen(true);
   };
 
-  const handleConfirmSignOut = () => {
+  const handleConfirmSignOut = async () => {
     setIsSignOutPromptOpen(false);
-    handleSignOut();
-    sidebarRef.current?.closeSidebar();
+    try {
+      if (supabaseRef.current) {
+        await supabaseRef.current.auth.signOut();
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   const handleCancelSignOut = () => {
     setIsSignOutPromptOpen(false);
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem('livedrawUser');
-    setUser(null);
-    window.google.accounts.id.cancel();
-    if (socket.connected) {
-      socket.disconnect();
-    }
-  };
-
-  // clear screen function  
   const handleClear = () => {
     setObjects([]);
     setSelectedObjectIds([]);
@@ -114,60 +180,43 @@ export default function App() {
   useEffect(() => {
     // removes preload class to reenable transitions after initial loading    
     document.body.classList.remove('preload');
-    // initializes user state based on localStorage data
-    const storedUser = localStorage.getItem('livedrawUser');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error('Invalid stored user', err);
-      }
-    }
   }, []);
 
+  // each of the event listeners have a separate, named function call
+  // which can be removed properly on unmount (as opposed to anonymous 
+  // functions that aren't properly removed)
+  // if not fixed, this causes duplicate listeners that don't properly 
+  // receive socket emits
   useEffect(() => {
+    // socket only connects if user is logged in
     if (!user) return;
 
     // sends authentication data to server when socket connects
     socket.auth = {
-      user,
-      sessionToken: user.sessionToken
+      accessToken: user.accessToken
     };
 
-    socket.on('connect', () => {
-      // verifies based on session token or authenticates 
-      // depending on if previous session available
-      if (user.sessionToken) {
-        socket.emit('verifySession', { sessionToken: user.sessionToken });
-      } else {
-        socket.emit('authenticate', { profile: user, token: user.token });
-      }
-    });
+    const onConnect = () => {
+      socket.emit('authenticate', { accessToken: user.accessToken });
+    };
 
-    // adds session token to user profile after getting it verified
-    socket.on('sessionToken', (sessionToken) => {
-      const updatedUser = { ...user, sessionToken };
-      localStorage.setItem('livedrawUser', JSON.stringify(updatedUser));
-      setUser(updatedUser);
-    })
-
-    socket.on('sessionVerified', () => {
+    const onSessionVerified = () => {
       console.log('Session verified successfully');
-    })
+    };
 
-    socket.on('authenticated', (profile) => {
+    const onAuthenticated = (profile) => {
       console.log('Authenticated user:', profile?.email || profile?.name);
-    });
+      setIsAuthenticated(true);
+    };
 
-    socket.on('authenticationError', (error) => {
+    const onAuthenticationError = (error) => {
       console.error('Authentication error:', error);
-      localStorage.removeItem('livedrawUser');
       setUser(null);
       alert('Authentication failed. Please sign in again.');
-    });
+    };
 
-    // waits for server updates, then sends changes to canvas       
-    socket.on('loadState', ({ objects: serverObjects, name }) => {
+    // waits for server updates, then sends changes to canvas      
+    const onLoadState = ({ objects: serverObjects, name }) => {
       setObjects(serverObjects || []);
       if (name) {
         setCurrentCanvasName(name);
@@ -175,19 +224,19 @@ export default function App() {
       } else {
         setCurrentCanvasName(null);
       }
-    });
+    };
 
-    socket.on('addObject', (object) => {
+    const onAddObject = (object) => {
       setObjects((prev) => [...prev, object]);
-    });
+    };
 
-    socket.on('updateObject', (object) => {
+    const onUpdateObject = (object) => {
       setObjects((prev) => prev.map(obj =>
         obj.id === object.id ? object : obj
       ));
-    });
+    };
 
-    socket.on('moveObjects', (ids, dp) => {
+    const onMoveObjects = (ids, dp) => {
       const idSet = new Set(ids);
       setObjects((prev) => prev.map((obj) => {
         if (!idSet.has(obj.id)) return obj;
@@ -209,19 +258,18 @@ export default function App() {
         }
         return obj;
       }));
-    });
+    };
 
-    socket.on('deleteObjects', (ids) => {
+    const onDeleteObjects = (ids) => {
       setObjects((prev) => prev.filter(obj => !ids.includes(obj.id)));
-    });
+    };
 
-    socket.on('clear', () => {
+    const onClear = () => {
       setObjects([]);
       setSelectedObjectIds([]);
-    });
+    };
 
-    // creates popup alerts for the client       
-    socket.on('canvasSaved', (name) => {
+    const onCanvasSaved = (name) => {
       alert(`Canvas "${name}" saved successfully!`);
       // updates drawing title on-screen before exiting
       setCurrentDrawingTitle(name);
@@ -232,32 +280,51 @@ export default function App() {
         // child component's function and closing the sidebar
         sidebarRef.current.closeSidebar();
       }
-    });
+    };
 
-    socket.on('saveError', (error) => {
+    const onSaveError = (error) => {
       pendingNavigationViewRef.current = null;
       alert(`Error saving canvas: ${error}`);
-    });
+    };
 
-    socket.on('loadError', (error) => {
+    const onLoadError = (error) => {
       alert(`Error loading canvas: ${error}`);
-    });
+    };
 
-    socket.connect();
+    socket.on('connect', onConnect);
+    socket.on('sessionVerified', onSessionVerified);
+    socket.on('authenticated', onAuthenticated);
+    socket.on('authenticationError', onAuthenticationError);
+    socket.on('loadState', onLoadState);
+    socket.on('addObject', onAddObject);
+    socket.on('updateObject', onUpdateObject);
+    socket.on('moveObjects', onMoveObjects);
+    socket.on('deleteObjects', onDeleteObjects);
+    socket.on('clear', onClear);
+    socket.on('canvasSaved', onCanvasSaved);
+    socket.on('saveError', onSaveError);
+    socket.on('loadError', onLoadError);
+
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      onConnect();
+    }
 
     return () => {
-      socket.off('connect');
-      socket.off('authenticated');
-      socket.off('authenticationError');
-      socket.off('loadState');
-      socket.off('addObject');
-      socket.off('updateObject');
-      socket.off('moveObjects');
-      socket.off('deleteObjects');
-      socket.off('clear');
-      socket.off('canvasSaved');
-      socket.off('saveError');
-      socket.off('loadError');
+      socket.off('connect', onConnect);
+      socket.off('sessionVerified', onSessionVerified);
+      socket.off('authenticated', onAuthenticated);
+      socket.off('authenticationError', onAuthenticationError);
+      socket.off('loadState', onLoadState);
+      socket.off('addObject', onAddObject);
+      socket.off('updateObject', onUpdateObject);
+      socket.off('moveObjects', onMoveObjects);
+      socket.off('deleteObjects', onDeleteObjects);
+      socket.off('clear', onClear);
+      socket.off('canvasSaved', onCanvasSaved);
+      socket.off('saveError', onSaveError);
+      socket.off('loadError', onLoadError);
       if (socket.connected) {
         socket.disconnect();
       }
@@ -273,8 +340,18 @@ export default function App() {
     }
   }, [fontSize, textColor]);
 
+  if (isCheckingSession) {
+    return (
+      <div className="app">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
-    return <Welcome onSignIn={handleSignIn} />;
+    return <Welcome />;
   }
 
   return (
@@ -293,7 +370,10 @@ export default function App() {
         handleConfirmSignOut={handleConfirmSignOut} />
       }
       {currentView === 'gallery' ? (
-        <Gallery setCurrentView={setCurrentView} onNewCanvas={handleNewCanvas} onSignOut={handleSignOut} />
+        <Gallery
+          isAuthenticated={isAuthenticated}
+          setCurrentView={setCurrentView}
+          onNewCanvas={handleNewCanvas} />
       ) : (
         <>
           <header className="header">
