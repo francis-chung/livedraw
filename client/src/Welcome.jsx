@@ -33,8 +33,6 @@ export default function Welcome() {
                 throw signInError;
             }
 
-            // Note: The redirect will handle the OAuth flow
-            // The session will be available after redirect and needs to be handled in App.jsx
         } catch (err) {
             setIsLoading(false);
             console.error('Sign-in error:', err);

@@ -27,11 +27,13 @@ const scaleObject = (obj) => {
     return obj;
 };
 
-export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas }) {
+export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas, setCurrentDrawingTitle }) {
     const [savedCanvases, setSavedCanvases] = useState([]);
+    const [canvasesLoading, setCanvasesLoading] = useState(true);
 
     useEffect(() => {
         const onSavedCanvases = (canvases) => {
+            setCanvasesLoading(false);
             setSavedCanvases(canvases);
         };
 
@@ -68,6 +70,7 @@ export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas }
     }, [isAuthenticated]);
 
     const handleLoadCanvas = (name) => {
+        setCurrentDrawingTitle("Loading...");
         socket.emit('loadCanvas', name);
         setCurrentView('canvas');
     };
@@ -93,31 +96,37 @@ export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas }
                 <button onClick={handleBack}>New Canvas</button>
             </header>
             <div className="gallery-content">
-                {savedCanvases.length === 0 ? (
-                    <p>No saved canvases yet. Create and save some drawings first!</p>
-                ) : (
-                    <div className="canvas-list">
-                        {savedCanvases.map((canvas) => (
-                            <div key={canvas.name} className="canvas-item">
-                                <h3>{canvas.name}</h3>
-                                <div className="preview">
-                                    <Stage width={200} height={150}>
-                                        <Layer>
-                                            {canvas.objects.map(obj => {
-                                                const scaled = scaleObject(obj);
-                                                return renderObject({ object: scaled });
-                                            })}
-                                        </Layer>
-                                    </Stage>
-                                </div>
-                                <div className="buttons">
-                                    <button className="load" onClick={() => handleLoadCanvas(canvas.name)}>Load</button>
-                                    <button className="delete" onClick={() => handleDeleteCanvas(canvas.name)}>Delete</button>
-                                </div>
+                {canvasesLoading ? (
+                    <p>Loading canvases...</p>
+                ) :
+                    (
+                        savedCanvases.length === 0 ? (
+                            <p>No saved canvases yet. Create and save some drawings first!</p>
+                        ) : (
+                            <div className="canvas-list">
+                                {savedCanvases.map((canvas) => (
+                                    <div key={canvas.name} className="canvas-item">
+                                        <h3>{canvas.name}</h3>
+                                        <div className="preview">
+                                            <Stage width={200} height={150}>
+                                                <Layer>
+                                                    {canvas.objects.map(obj => {
+                                                        const scaled = scaleObject(obj);
+                                                        return renderObject({ object: scaled });
+                                                    })}
+                                                </Layer>
+                                            </Stage>
+                                        </div>
+                                        <div className="buttons">
+                                            <button className="load" onClick={() => handleLoadCanvas(canvas.name)}>Load</button>
+                                            <button className="delete" onClick={() => handleDeleteCanvas(canvas.name)}>Delete</button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                )}
+                        )
+                    )
+                }
             </div>
         </div>
     );

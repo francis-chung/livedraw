@@ -42,14 +42,12 @@ export default function App() {
   const pendingNavigationViewRef = useRef(null);
   const supabaseRef = useRef(null);
 
-  // Initialize Supabase client
   useEffect(() => {
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
   }, []);
 
-  // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -78,7 +76,6 @@ export default function App() {
 
     checkSession();
 
-    // Set up auth state listener
     if (supabaseRef.current) {
       const { data: { subscription } } = supabaseRef.current.auth.onAuthStateChange(
         async (event, session) => {
@@ -344,7 +341,8 @@ export default function App() {
         <Gallery
           isAuthenticated={isAuthenticated}
           setCurrentView={setCurrentView}
-          onNewCanvas={handleNewCanvas} />
+          onNewCanvas={handleNewCanvas}
+          setCurrentDrawingTitle={setCurrentDrawingTitle} />
       ) : (
         <>
           <header className="header">
