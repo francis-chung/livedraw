@@ -13,7 +13,7 @@
 }
 
 .editbar h2 {
-    font-size: 20px;
+    font-size: 19px;
     color: #aca3a3;
     /* headers have top and bottom margins by default */
     margin-top: 0;
@@ -29,6 +29,30 @@
 
 .edit-group label {
     font-weight: bold;
+}
+
+.color-wrapper {
+    position: relative;
+    width: 50px;
+    height: 27px;
+    margin-right: 55px;
+}
+
+.multiple-colors {
+    position: absolute;
+    /* shorthand for top, bottom, left, right: 0
+    ensures it stretches to fully cover the wrapper parent */
+    inset: 0;
+    /* repeats transparent 6px and grey 6px at 45 degree angle */
+    background: repeating-linear-gradient(
+        45deg, 
+        transparent 0px, 
+        transparent 6px, 
+        rgba(255, 255, 255, 0.6) 6px, 
+        rgba(255, 255, 255, 0.6) 12px
+    );
+    /* mouse clicks pass through this layer */
+    pointer-events: none;
 }
 
 .delete {

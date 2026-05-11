@@ -313,14 +313,19 @@ io.on('connection', async (socket) => {
         socket.to(socket.currentRoom).emit('addObject', object);
     });
 
-    socket.on('updateObject', (object) => {
+    socket.on('updateObjects', (updatedObjects) => {
         if (!socket.currentCanvas || !socket.user) return;
         const objects = getCanvasState(socket.user.id, socket.currentCanvas);
         const key = `${socket.user.id}:${socket.currentCanvas}`;
-        canvasStates[key] = objects.map(obj =>
-            obj.id === object.id ? object : obj
+        // creates a map that allows direct replacement of objects in 
+        // stored array based on object id
+        const updates = new Map(
+            updatedObjects.map(obj => [obj.id, obj])
         );
-        socket.to(socket.currentRoom).emit('updateObject', object);
+        canvasStates[key] = objects.map(obj =>
+            updates.get(obj.id) || obj
+        );
+        socket.to(socket.currentRoom).emit('updateObjects', updatedObjects);
     });
 
     socket.on('moveObjects', (ids, dp) => {

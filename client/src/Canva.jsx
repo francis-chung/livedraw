@@ -147,6 +147,8 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       isSelecting.current = true;
       selectionStart.current = pointerPos;
       setSelectionBox({ x, y, width: 0, height: 0 });
+      // ensures mysterious hovering bug is prevented when clicking in specific spots
+      setHoveredObjectIds([]);
     } else if (tool === 'text') {
       // setTimeout() required so clicking on stage doesn't focus 
       // on stage again and trigger onBlur() after initially creating textbox         
@@ -157,7 +159,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           x,
           y,
           value: '',
-          textColor,
+          color: textColor,
           fontSize,
         });
       }, 0);

@@ -23,7 +23,7 @@ export default function Textbox({ stageBox, objects, setObjects, editingText, se
                     setObjects(prev => prev.map(obj =>
                         obj.id === editedText.id ? editedText : obj
                     ));
-                    socket.emit('updateObject', editedText);
+                    socket.emit('updateObjects', [editedText]);
                 }
             }
             setEditingText(null);
@@ -64,7 +64,7 @@ export default function Textbox({ stageBox, objects, setObjects, editingText, se
                     fontSize: editingText.fontSize,
                     fontFamily: "Arial",
                     lineHeight: 1.2,
-                    color: editingText.textColor
+                    color: editingText.color
                 }}
                 autoFocus
                 value={editingText.value || ""}

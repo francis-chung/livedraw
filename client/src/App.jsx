@@ -29,6 +29,8 @@ export default function App() {
   const [tool, setTool] = useState('draw');
   const [objects, setObjects] = useState([]);
   const [editingText, setEditingText] = useState(null);
+  const [editColor, setEditColor] = useState('#000000');
+  const [multipleColors, setMultipleColors] = useState(false);
   const [selectedObjectIds, setSelectedObjectIds] = useState([]);
   const [hoveredObjectIds, setHoveredObjectIds] = useState([]);
   const [isChangingText, setIsChangingText] = useState(false);
@@ -44,14 +46,14 @@ export default function App() {
   // uses ref because it survives re-renders
   const supabaseRef = useRef(null);
 
-  // initialize supabase client
+  // initialize supabase client  
   useEffect(() => {
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
   }, []);
 
-  // check for existing session on mount, and listens for auth changes later
+  // check for existing session on mount, and listens for auth changes later  
   useEffect(() => {
     // checks whether supabase already has a saved login session
     const checkSession = async () => {
@@ -83,7 +85,7 @@ export default function App() {
 
     checkSession();
 
-    // set up auth state listener
+    // set up auth state listener    
     if (supabaseRef.current) {
       // invokes inside function whenever auth changes, such as sign in/out
       // has branching depending on the event
@@ -230,9 +232,12 @@ export default function App() {
       setObjects((prev) => [...prev, object]);
     };
 
-    const onUpdateObject = (object) => {
+    const onUpdateObjects = (updatedObjects) => {
+      const updates = new Map(
+        updatedObjects.map(obj => [obj.id, obj])
+      );
       setObjects((prev) => prev.map(obj =>
-        obj.id === object.id ? object : obj
+        updates.get(obj.id) || obj
       ));
     };
 
@@ -297,7 +302,7 @@ export default function App() {
     socket.on('authenticationError', onAuthenticationError);
     socket.on('loadState', onLoadState);
     socket.on('addObject', onAddObject);
-    socket.on('updateObject', onUpdateObject);
+    socket.on('updateObjects', onUpdateObjects);
     socket.on('moveObjects', onMoveObjects);
     socket.on('deleteObjects', onDeleteObjects);
     socket.on('clear', onClear);
@@ -318,7 +323,7 @@ export default function App() {
       socket.off('authenticationError', onAuthenticationError);
       socket.off('loadState', onLoadState);
       socket.off('addObject', onAddObject);
-      socket.off('updateObject', onUpdateObject);
+      socket.off('updateObjects', onUpdateObjects);
       socket.off('moveObjects', onMoveObjects);
       socket.off('deleteObjects', onDeleteObjects);
       socket.off('clear', onClear);
@@ -336,9 +341,35 @@ export default function App() {
   // is the closest (and only) ancestor of both Textbar and Textbox files
   useEffect(() => {
     if (editingText) {
-      setEditingText(prev => ({ ...prev, fontSize, textColor }));
+      setEditingText(prev => ({ ...prev, fontSize, color: textColor }));
     }
   }, [fontSize, textColor]);
+
+  // updates the displayed color of one or more selected objects
+  // as well as adding multi-colored option if valid 
+  useEffect(() => {
+    if (tool !== 'select' || selectedObjectIds.length === 0) return;
+    const colors = objects
+      .filter(obj => selectedObjectIds.includes(obj.id))
+      .map(obj => obj.color);
+    setEditColor(colors[0]);
+    for (const color of colors) {
+      if (color !== colors[0]) {
+        setMultipleColors(true);
+      }
+    }
+  }, [selectedObjectIds]);
+
+  // adjusts objects array in real time based on adjustments of editing color
+  useEffect(() => {
+    if (multipleColors) return;
+    setObjects(prev => prev.map(obj => {
+      if (!selectedObjectIds.includes(obj.id)) return obj;
+      return { ...obj, color: editColor };
+    }));
+    const updatedObjects = objects.filter(obj => selectedObjectIds.includes(obj.id));
+    socket.emit('updateObjects', updatedObjects);
+  }, [editColor]);
 
   if (isCheckingSession) {
     return (
@@ -373,7 +404,8 @@ export default function App() {
         <Gallery
           isAuthenticated={isAuthenticated}
           setCurrentView={setCurrentView}
-          onNewCanvas={handleNewCanvas} />
+          onNewCanvas={handleNewCanvas}
+          setCurrentDrawingTitle={setCurrentDrawingTitle} />
       ) : (
         <>
           <header className="header">
@@ -391,6 +423,10 @@ export default function App() {
             <Selectbar
               selectedObjectIds={selectedObjectIds}
               deleteObjects={deleteObjects}
+              editColor={editColor}
+              setEditColor={setEditColor}
+              multipleColors={multipleColors}
+              setMultipleColors={setMultipleColors}
             />
           )}
           {tool === 'text' && (
