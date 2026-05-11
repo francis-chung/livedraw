@@ -115,6 +115,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       isSelecting.current = true;
       selectionStart.current = pointerPos;
       setSelectionBox({ x, y, width: 0, height: 0 });
+      setHoveredObjectIds([]);
     } else if (tool === 'text') {
       setTimeout(() => {
         setEditingText({
@@ -123,7 +124,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           x,
           y,
           value: '',
-          textColor,
+          color: textColor,
           fontSize,
         });
       }, 0);

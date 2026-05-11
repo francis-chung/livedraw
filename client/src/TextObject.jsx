@@ -8,7 +8,7 @@ export default function TextObject({ object, handleObjectClick, setSelectedObjec
             y={object.y}
             fontSize={object.fontSize}
             lineHeight={1.2}
-            fill={object.textColor}
+            fill={object.color}
             onClick={(e) => handleObjectClick(object, e)}
             onTap={(e) => handleObjectClick(object, e)}
             onDblClick={() => {
