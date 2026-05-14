@@ -28,7 +28,7 @@ const scaleObject = (obj) => {
     return obj;
 };
 
-export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas, setCurrentDrawingTitle }) {
+export default function Gallery({ user, isAuthenticated, setCurrentView, onNewCanvas, setCurrentDrawingTitle }) {
     const [savedCanvases, setSavedCanvases] = useState([]);
     const [canvasesLoading, setCanvasesLoading] = useState(true);
 
@@ -71,10 +71,10 @@ export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas, 
         socket.emit('getSavedCanvases');
     }, [isAuthenticated]);
 
-    const handleLoadCanvas = (name) => {
+    const handleLoadCanvas = (canvas) => {
         // adds pending drawing title while waiting for canvas to load
         setCurrentDrawingTitle("Loading...");
-        socket.emit('loadCanvas', name);
+        socket.emit('loadCanvas', { id: canvas.id });
         setCurrentView('canvas');
     };
 
@@ -121,8 +121,9 @@ export default function Gallery({ isAuthenticated, setCurrentView, onNewCanvas, 
                                             </Stage>
                                         </div>
                                         <div className="buttons">
-                                            <button className="load" onClick={() => handleLoadCanvas(canvas.name)}>Load</button>
-                                            <button className="delete" onClick={() => handleDeleteCanvas(canvas.name)}>Delete</button>
+                                            <button className="load" onClick={() => handleLoadCanvas(canvas)}>Load</button>
+                                            {!canvas.shared && <button className="delete" onClick={() => handleDeleteCanvas(canvas.name)}>Delete</button>}
+                                            {canvas.shared && <span className="shared-label">Shared ({canvas.role})</span>}
                                         </div>
                                     </div>
                                 ))}

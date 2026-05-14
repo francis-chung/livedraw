@@ -18,7 +18,9 @@ const { setUser, requireAuth } = require('./services/authService');
 const {
     saveCanvas,
     loadCanvas,
+    loadCanvasById,
     getSavedCanvases,
+    shareCanvas,
     deleteCanvas
 } = require('./services/canvasService');
 const {
@@ -161,40 +163,54 @@ io.on('connection', async (socket) => {
         socket.to(socket.currentRoom).emit('clear');
     });
 
-    // this and several other events check authentication before proceeding    
-    socket.on('saveCanvas', async ({ name, objects: clientObjects }) => {
+    // this and several other events check authentication before proceeding   
+    socket.on('saveCanvas', async ({ name, objects: clientObjects, canvasId }) => {
         if (!requireAuth(socket)) return;
         try {
             // supabase client must be redefined properly to ensure 
             // the access token is the right one
             const supabase = socket.supabase;
-            const key = `${socket.user.id}:${name}`;
-            const objectsToSave = clientObjects || canvasStates[key] || [];
-            canvasStates[key] = objectsToSave;
-            await saveCanvas(supabase, socket.user.id, name, objectsToSave);
-            // only sends a response to the requesting client            
-            socket.emit('canvasSaved', name);
-            console.log(`Canvas saved as ${name} for user ${socket.user.id}`);
+            const objectsToSave = clientObjects || [];
+            const savedCanvasId = await saveCanvas(supabase, socket.user.id, name, objectsToSave, canvasId);
+            // only sends a response to the requesting client 
+            socket.emit('canvasSaved', { name, id: savedCanvasId });
+            console.log(`Canvas saved as ${name} (${savedCanvasId}) for user ${socket.user.id}`);
         } catch (error) {
             console.error('Save canvas error:', error);
             socket.emit('saveError', error?.message || 'Unable to save canvas');
         }
     });
 
-    socket.on('loadCanvas', async (name) => {
+    socket.on('loadCanvas', async (payload) => {
         if (!requireAuth(socket)) return;
         try {
             const supabase = socket.supabase;
-            const loadedObjects = await loadCanvas(supabase, socket.user.id, name);
-            if (loadedObjects !== null) {
-                const key = `${socket.user.id}:${name}`;
-                canvasStates[key] = loadedObjects;
-                joinCanvas(canvasStates, socket, name);
-                // only loads the state of the client that sent the request 
-                socket.emit('loadState', { objects: loadedObjects, name });
-                console.log(`Canvas ${name} loaded in room ${socket.currentRoom} for user ${socket.user.id}`);
+            let loaded;
+            // loads canvas based on parameter that loadCanvas was called with
+            if (typeof payload === 'object' && payload?.id) {
+                loaded = await loadCanvasById(supabase, socket.user.id, payload.id);
             } else {
-                socket.emit('loadError', `Canvas ${name} not found`);
+                loaded = await loadCanvas(supabase, socket.user.id, payload);
+            }
+
+            // processes loaded canvas: joins the canvas and loads state
+            if (loaded !== null) {
+                const canvasId = loaded.id || null;
+                if (canvasId) {
+                    canvasStates[`canvas:${canvasId}`] = loaded.objects;
+                    joinCanvas(canvasStates, socket, canvasId);
+                    socket.emit('loadState', {
+                        objects: loaded.objects,
+                        id: canvasId,
+                        name: loaded.name,
+                        owner_id: loaded.owner_id
+                    });
+                    console.log(`Canvas ${loaded.name} (${canvasId}) loaded in room ${socket.currentRoom} for user ${socket.user.id}`);
+                } else {
+                    socket.emit('loadError', 'Canvas metadata missing');
+                }
+            } else {
+                socket.emit('loadError', `Canvas not found or access denied`);
             }
         } catch (error) {
             console.error('Load canvas error:', error);
@@ -215,6 +231,19 @@ io.on('connection', async (socket) => {
         } catch (error) {
             console.error('Get saved canvases error:', error);
             socket.emit('savedCanvasesError', error?.message || 'Unable to retrieve saved canvases');
+        }
+    });
+
+    socket.on('shareCanvas', async ({ canvasId, targetUserId, role }) => {
+        if (!requireAuth(socket)) return;
+        try {
+            const supabase = socket.supabase;
+            await shareCanvas(supabase, socket.user.id, canvasId, targetUserId, role);
+            socket.emit('shareSuccess', { canvasId, targetUserId, role });
+            console.log(`Canvas ${canvasId} shared with ${targetUserId} as ${role} by ${socket.user.id}`);
+        } catch (error) {
+            console.error('Share canvas error:', error);
+            socket.emit('shareError', error?.message || 'Unable to share canvas');
         }
     });
 

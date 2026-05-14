@@ -4,10 +4,20 @@ import DarkMode from './DarkMode.jsx';
 
 // forwardRef enables a ref to be passed into function
 // allows parent components to access functions of child components
-const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOutRequest, currentView }, ref) {
-    // both states necessary for smooth CSS transition animations      
+const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOutRequest, currentView, onShareCanvas }, ref) {
+    // both states necessary for smooth CSS transition animations  
     const [isOpen, setIsOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
+    const [shareUserId, setShareUserId] = useState('');
+    const [shareRole, setShareRole] = useState('viewer');
+
+    const handleShareClick = () => {
+        if (!shareUserId.trim()) {
+            return;
+        }
+        onShareCanvas(shareUserId.trim(), shareRole);
+        setShareUserId('');
+    };
 
     const openSidebar = () => {
         setIsOpen(true);
@@ -61,9 +71,28 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
                         <div className="sidebar-settings settings">
                             <h3>Settings</h3>
                             <DarkMode />
-                            {currentView === "canvas" && <button className="gallery-button" onClick={onGalleryClick}>
-                                Gallery
-                            </button>}
+                            {currentView === "canvas" && <>
+                                <button className="gallery-button" onClick={onGalleryClick}>
+                                    Gallery
+                                </button>
+                                <div className="share-panel">
+                                    <h4>Share Canvas</h4>
+                                    <p>Enter another user's Supabase ID and choose a role.</p>
+                                    <input
+                                        type="text"
+                                        value={shareUserId}
+                                        placeholder="Target user ID"
+                                        onChange={(event) => setShareUserId(event.target.value)}
+                                    />
+                                    <select value={shareRole} onChange={(event) => setShareRole(event.target.value)}>
+                                        <option value="viewer">Viewer</option>
+                                        <option value="editor">Editor</option>
+                                    </select>
+                                    <button className="share-button" onClick={handleShareClick}>
+                                        Share
+                                    </button>
+                                </div>
+                            </>}
                         </div>
                         <div className="login-info settings">
                             <h3>Signed in as {user.name || user.email}</h3>

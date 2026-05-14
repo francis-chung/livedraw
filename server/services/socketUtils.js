@@ -1,6 +1,6 @@
 // returns all objects of a specific canvas from a specific user
-function getCanvasState(canvasStates, userId, name) {
-    const key = `${userId}:${name}`;
+function getCanvasState(canvasStates, canvasId) {
+    const key = `canvas:${canvasId}`;
     if (!canvasStates[key]) {
         canvasStates[key] = [];
     }
@@ -15,16 +15,16 @@ function leaveCurrentCanvas(socket) {
     }
 }
 
-function joinCanvas(canvasStates, socket, name) {
+function joinCanvas(canvasStates, socket, canvasId) {
     // ensures that any previous canvas is left before joining a new one
     leaveCurrentCanvas(socket);
     // type-prefixed custom for room naming
-    // rooms and canvasStates keys must have both user ID and canvas name    
-    const room = `canvas:${socket.user.id}:${name}`;
+    // rooms and canvasStates keys must have canvas id
+    const room = `canvas:${canvasId}`;
     socket.join(room);
     socket.currentRoom = room;
-    socket.currentCanvas = name;
-    return getCanvasState(canvasStates, socket.user.id, name);
+    socket.currentCanvas = canvasId;
+    return getCanvasState(canvasStates, canvasId);
 }
 
 module.exports = {
