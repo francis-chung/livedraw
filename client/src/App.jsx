@@ -36,6 +36,8 @@ export default function App() {
   const [interactingWithTextbar, setInteractingWithTextbar] = useState(false);
   const [currentView, setCurrentView] = useState('gallery');
   const [currentCanvasName, setCurrentCanvasName] = useState(null);
+  const [currentCanvasId, setCurrentCanvasId] = useState(null);
+  const [currentCanvasOwnerId, setCurrentCanvasOwnerId] = useState(null);
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const [user, setUser] = useState(null);
   const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
@@ -142,6 +144,8 @@ export default function App() {
     setIsChangingText(false);
     socket.emit('leaveCanvas');
     if (!exitCanvas) {
+      setCurrentCanvasId(null);
+      setCurrentCanvasOwnerId(null);
       setCurrentCanvasName(null);
       setCurrentDrawingTitle('Untitled');
       setCurrentView('canvas');
@@ -158,11 +162,27 @@ export default function App() {
     if (galleryView) {
       pendingNavigationViewRef.current = 'gallery';
     }
-    socket.emit('saveCanvas', { name, objects });
+    socket.emit('saveCanvas', { name, objects, canvasId: currentCanvasId });
   };
 
   const handleGalleryClick = () => {
     handleSave(true);
+  };
+
+  const handleShareCanvas = (targetUserId, role) => {
+    if (!currentCanvasId) {
+      alert('Please save the canvas first before sharing it.');
+      return;
+    }
+    if (!targetUserId) {
+      alert('Please enter a target user ID to share with.');
+      return;
+    }
+    socket.emit('shareCanvas', {
+      canvasId: currentCanvasId,
+      targetUserId,
+      role
+    });
   };
 
   const deleteObjects = (objectIds) => {
@@ -201,8 +221,10 @@ export default function App() {
       alert('Authentication failed. Please sign in again.');
     };
 
-    const onLoadState = ({ objects: serverObjects, name }) => {
+    const onLoadState = ({ objects: serverObjects, id, name, owner_id }) => {
       setObjects(serverObjects || []);
+      setCurrentCanvasId(id || null);
+      setCurrentCanvasOwnerId(owner_id || null);
       if (name) {
         setCurrentCanvasName(name);
         setCurrentDrawingTitle(name);
@@ -257,9 +279,12 @@ export default function App() {
       setSelectedObjectIds([]);
     };
 
-    const onCanvasSaved = (name) => {
+    const onCanvasSaved = ({ name, id }) => {
       alert(`Canvas "${name}" saved successfully!`);
       setCurrentDrawingTitle(name);
+      setCurrentCanvasName(name);
+      setCurrentCanvasId(id || null);
+      setCurrentCanvasOwnerId(user?.id || null);
       if (pendingNavigationViewRef.current) {
         setCurrentView(pendingNavigationViewRef.current);
         pendingNavigationViewRef.current = null;
@@ -267,6 +292,10 @@ export default function App() {
         handleNewCanvas(true);
       }
     };
+
+    const onShareSuccess = ({ canvasId, targetUserId, role }) => {
+      alert(`Canvas shared with ${targetUserId} as ${role}`);
+    }
 
     const onSaveError = (error) => {
       pendingNavigationViewRef.current = null;
@@ -276,6 +305,10 @@ export default function App() {
     const onLoadError = (error) => {
       alert(`Error loading canvas: ${error}`);
     };
+
+    const onShareError = (error) => {
+      alert(`Error sharing canvas: ${error}`);
+    }
 
     socket.on('connect', onConnect);
     socket.on('sessionVerified', onSessionVerified);
@@ -288,8 +321,10 @@ export default function App() {
     socket.on('deleteObjects', onDeleteObjects);
     socket.on('clear', onClear);
     socket.on('canvasSaved', onCanvasSaved);
+    socket.on('shareSuccess', onShareSuccess);
     socket.on('saveError', onSaveError);
     socket.on('loadError', onLoadError);
+    socket.on('shareError', onShareError);
 
     if (!socket.connected) {
       socket.connect();
@@ -309,8 +344,10 @@ export default function App() {
       socket.off('deleteObjects', onDeleteObjects);
       socket.off('clear', onClear);
       socket.off('canvasSaved', onCanvasSaved);
+      socket.off('shareSuccess', onShareSuccess);
       socket.off('saveError', onSaveError);
       socket.off('loadError', onLoadError);
+      socket.off('shareError', onShareError);
       if (socket.connected) {
         socket.disconnect();
       }
@@ -367,6 +404,7 @@ export default function App() {
           user={user}
           onGalleryClick={handleGalleryClick}
           onSignOutRequest={handleSignOutRequest}
+          onShareCanvas={handleShareCanvas}
           currentView={currentView}
           ref={sidebarRef} />
       </header>
@@ -377,6 +415,7 @@ export default function App() {
       }
       {currentView === 'gallery' ? (
         <Gallery
+          user={user}
           isAuthenticated={isAuthenticated}
           setCurrentView={setCurrentView}
           onNewCanvas={handleNewCanvas}

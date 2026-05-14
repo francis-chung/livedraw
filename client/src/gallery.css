@@ -126,6 +126,13 @@
   background-color: #c82333;
 }
 
+.canvas-item .shared-label {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #ffc107;
+}
+
 .gallery-header button {
   background-color: #28a745;
   color: #fff;

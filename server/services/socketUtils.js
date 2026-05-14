@@ -1,5 +1,5 @@
-function getCanvasState(canvasStates, userId, name) {
-    const key = `${userId}:${name}`;
+function getCanvasState(canvasStates, canvasId) {
+    const key = `canvas:${canvasId}`;
     if (!canvasStates[key]) {
         canvasStates[key] = [];
     }
@@ -14,13 +14,13 @@ function leaveCurrentCanvas(socket) {
     }
 }
 
-function joinCanvas(canvasStates, socket, name) {
+function joinCanvas(canvasStates, socket, canvasId) {
     leaveCurrentCanvas(socket);
-    const room = `canvas:${socket.user.id}:${name}`;
+    const room = `canvas:${canvasId}`;
     socket.join(room);
     socket.currentRoom = room;
-    socket.currentCanvas = name;
-    return getCanvasState(canvasStates, socket.user.id, name);
+    socket.currentCanvas = canvasId;
+    return getCanvasState(canvasStates, canvasId);
 }
 
 module.exports = {
