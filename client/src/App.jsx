@@ -139,17 +139,26 @@ export default function App() {
     socket.emit('clear');
   };
 
-  // resets all states, then leaves the current canvas if applicable
-  const handleNewCanvas = () => {
+  // resets all states, then leaves the current canvas if applicable  
+  const handleNewCanvas = (exitCanvas = false) => {
+    setColor('#000000');
+    setBrushSize(2);
+    setFontSize(16);
+    setTextColor('#000000');
+    setLineSize(2);
+    setLineColor('#000000');
+    setTool('draw');
     setObjects([]);
     setSelectedObjectIds([]);
     setHoveredObjectIds([]);
     setEditingText(null);
     setIsChangingText(false);
-    setCurrentCanvasName(null);
-    setCurrentDrawingTitle('Untitled');
     socket.emit('leaveCanvas');
-    setCurrentView('canvas');
+    if (!exitCanvas) {
+      setCurrentCanvasName(null);
+      setCurrentDrawingTitle('Untitled');
+      setCurrentView('canvas');
+    }
   };
 
   // galleryView parameter if redirecting to gallery
@@ -284,6 +293,7 @@ export default function App() {
         // waits for the current view to change before calling 
         // child component's function and closing the sidebar
         sidebarRef.current.closeSidebar();
+        handleNewCanvas(true);
       }
     };
 

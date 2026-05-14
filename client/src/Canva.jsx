@@ -46,8 +46,8 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     if (object.type === 'text') {
       const lines = (object.value || '').split('\n');
 
-      // approximates width based on font size of textbox
-      const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
+      // adds padding based on offset padding later
+      const width = object.width + 8;
       const height = lines.length * object.fontSize * 1.2 + 8;
 
       // accounts for padding
@@ -161,6 +161,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           value: '',
           color: textColor,
           fontSize,
+          width: 0
         });
       }, 0);
     } else if (tool === 'line') {

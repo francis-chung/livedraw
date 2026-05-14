@@ -14,8 +14,8 @@ export default function Textbox({ stageBox, objects, setObjects, editingText, se
             // ensures a non-empty value is in the textarea in order to save
             const trimmed = editingText.value.trim();
             if (trimmed) {
-                // fontSize offset necessary for proper display (and due to Konva misalignment)
-                const editedText = { ...editingText, value: trimmed, y: editingText.y - editingText.fontSize * 0.5 };
+                // fontSize offset necessary for proper display (and due to Konva misalignment)                
+                const editedText = { ...editingText, value: trimmed, y: editingText.y - editingText.fontSize * 0.5, width: textboxWidth - editingText.fontSize };
                 if (!isChangingText) { // for adding a new text object
                     setObjects([...objects, editedText]);
                     socket.emit('addObject', editedText);
