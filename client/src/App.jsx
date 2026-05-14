@@ -127,16 +127,25 @@ export default function App() {
     socket.emit('clear');
   };
 
-  const handleNewCanvas = () => {
+  const handleNewCanvas = (exitCanvas = false) => {
+    setColor('#000000');
+    setBrushSize(2);
+    setFontSize(16);
+    setTextColor('#000000');
+    setLineSize(2);
+    setLineColor('#000000');
+    setTool('draw');
     setObjects([]);
     setSelectedObjectIds([]);
     setHoveredObjectIds([]);
     setEditingText(null);
     setIsChangingText(false);
-    setCurrentCanvasName(null);
-    setCurrentDrawingTitle('Untitled');
     socket.emit('leaveCanvas');
-    setCurrentView('canvas');
+    if (!exitCanvas) {
+      setCurrentCanvasName(null);
+      setCurrentDrawingTitle('Untitled');
+      setCurrentView('canvas');
+    }
   };
 
   const handleSave = (galleryView) => {
@@ -255,6 +264,7 @@ export default function App() {
         setCurrentView(pendingNavigationViewRef.current);
         pendingNavigationViewRef.current = null;
         sidebarRef.current.closeSidebar();
+        handleNewCanvas(true);
       }
     };
 
