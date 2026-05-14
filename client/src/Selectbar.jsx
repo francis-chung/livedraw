@@ -1,8 +1,6 @@
 import './editbar.css';
 
 export default function Selectbar({ selectedObjectIds, deleteObjects, editColor, setEditColor, multipleColors, setMultipleColors }) {
-
-
     return (
         <div className="editbar">
             {selectedObjectIds.length === 0 ? (

@@ -37,7 +37,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
     if (object.type === 'text') {
       const lines = (object.value || '').split('\n');
-      const width = Math.max(...lines.map((line) => line.length * object.fontSize * 0.55));
+      const width = object.width + 8;
       const height = lines.length * object.fontSize * 1.2 + 8;
       return { x: object.x - 4, y: object.y - 4, width, height };
     }
@@ -126,6 +126,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           value: '',
           color: textColor,
           fontSize,
+          width: 0
         });
       }, 0);
     } else if (tool === 'line') {

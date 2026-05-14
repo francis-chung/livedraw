@@ -11,7 +11,8 @@ export default function Textbox({ stageBox, objects, setObjects, editingText, se
         if (!interactingWithTextbar) {
             const trimmed = editingText.value.trim();
             if (trimmed) {
-                const editedText = { ...editingText, value: trimmed, y: editingText.y - editingText.fontSize * 0.5 };
+                console.log(textboxWidth);
+                const editedText = { ...editingText, value: trimmed, y: editingText.y - editingText.fontSize * 0.5, width: textboxWidth - editingText.fontSize };
                 if (!isChangingText) {
                     setObjects([...objects, editedText]);
                     socket.emit('addObject', editedText);
