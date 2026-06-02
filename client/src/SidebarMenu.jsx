@@ -64,29 +64,29 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
                         <div className="sidebar-settings settings">
                             <h3>Settings</h3>
                             <DarkMode />
-                            {currentView === "canvas" && <>
+                            {currentView === "canvas" &&
                                 <button className="gallery-button" onClick={onGalleryClick}>
                                     Gallery
-                                </button>
-                                <div className="share-panel">
-                                    <h4>Share Canvas</h4>
-                                    <p>Enter another user's Supabase ID and choose a role.</p>
-                                    <input
-                                        type="text"
-                                        value={shareUserId}
-                                        placeholder="Target user ID"
-                                        onChange={(event) => setShareUserId(event.target.value)}
-                                    />
-                                    <select value={shareRole} onChange={(event) => setShareRole(event.target.value)}>
-                                        <option value="viewer">Viewer</option>
-                                        <option value="editor">Editor</option>
-                                    </select>
-                                    <button className="share-button" onClick={handleShareClick}>
-                                        Share
-                                    </button>
-                                </div>
-                            </>}
+                                </button>}
                         </div>
+                        {currentView === "canvas" &&
+                            <div className="sidebar-settings settings">
+                                <h3>Share canvas</h3>
+                                <p>Enter another user's Supabase ID and choose a role.</p>
+                                <input
+                                    type="text"
+                                    value={shareUserId}
+                                    placeholder="Target user ID"
+                                    onChange={(event) => setShareUserId(event.target.value)}
+                                />
+                                <select value={shareRole} onChange={(event) => setShareRole(event.target.value)}>
+                                    <option value="viewer">Viewer</option>
+                                    <option value="editor">Editor</option>
+                                </select>
+                                <button className="share-button" onClick={handleShareClick}>
+                                    Share
+                                </button>
+                            </div>}
                         <div className="login-info settings">
                             <h3>Signed in as {user.name || user.email}</h3>
                             <button className="sign-out" onClick={onSignOutRequest}>
