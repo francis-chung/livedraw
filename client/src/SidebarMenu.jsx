@@ -7,6 +7,7 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
     const [isClosing, setIsClosing] = useState(false);
     const [shareUserId, setShareUserId] = useState('');
     const [shareRole, setShareRole] = useState('viewer');
+    const [copyFeedback, setCopyFeedback] = useState(false);
 
     const handleShareClick = () => {
         if (!shareUserId.trim()) {
@@ -14,6 +15,12 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
         }
         onShareCanvas(shareUserId.trim(), shareRole);
         setShareUserId('');
+    };
+
+    const handleCopyId = () => {
+        navigator.clipboard.writeText(user.id);
+        setCopyFeedback(true);
+        setTimeout(() => setCopyFeedback(false), 3000);
     };
 
     const openSidebar = () => {
@@ -89,6 +96,20 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
                             </div>}
                         <div className="login-info settings">
                             <h3>Signed in as {user.name || user.email}</h3>
+                            <button className="copy-id-button" title="Click icon to copy your Supabase ID">
+                                <span className="id-text">{user.id}</span>
+                                <span
+                                    className="copy-icon"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleCopyId();
+                                    }}
+                                    title="Copy ID"
+                                >
+                                    {copyFeedback ? '✓' : '📋'}
+                                </span>
+                            </button>
                             <button className="sign-out" onClick={onSignOutRequest}>
                                 Sign out
                             </button>
