@@ -123,7 +123,7 @@ export default function Gallery({ user, isAuthenticated, setCurrentView, onNewCa
                                         <div className="buttons">
                                             <button className="load" onClick={() => handleLoadCanvas(canvas)}>Load</button>
                                             {!canvas.shared && <button className="delete" onClick={() => handleDeleteCanvas(canvas.name)}>Delete</button>}
-                                            {canvas.shared && <span className="shared-label">Shared ({canvas.role})</span>}
+                                            {canvas.shared && <span className={`shared-label ${canvas.role === "editor" ? 'editor' : 'viewer'}`}>Shared ({canvas.role})</span>}
                                         </div>
                                     </div>
                                 ))}

@@ -4,6 +4,7 @@ import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './App.css';
 import SidebarMenu from './SidebarMenu.jsx';
+import AccessBox from './AccessBox.jsx';
 import Drawbar from './Drawbar.jsx';
 import Selectbar from './Selectbar.jsx';
 import Textbar from './Textbar.jsx';
@@ -39,6 +40,10 @@ export default function App() {
   const [currentCanvasName, setCurrentCanvasName] = useState(null);
   const [currentCanvasId, setCurrentCanvasId] = useState(null);
   const [currentCanvasOwnerId, setCurrentCanvasOwnerId] = useState(null);
+  // canvas role reveals permissions, access mode is whether user is viewing or editing
+  const [currentCanvasRole, setCurrentCanvasRole] = useState('owner');
+  const [canvasAccessMode, setCanvasAccessMode] = useState('edit');
+  const [lastEditTool, setLastEditTool] = useState('draw');
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const [user, setUser] = useState(null);
   const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
@@ -160,17 +165,25 @@ export default function App() {
       setCurrentCanvasId(null);
       setCurrentCanvasOwnerId(null);
       setCurrentCanvasName(null);
+      setCurrentCanvasRole('owner');
       setCurrentDrawingTitle('Untitled');
       setCurrentView('canvas');
     }
   };
 
   // galleryView parameter if redirecting to gallery
-  const handleSave = (galleryView) => {
+  // editor parameter to circumvent saving and go straight to gallery
+  const handleSave = (galleryView, editor) => {
+    if (!editor) {
+      setCurrentView('gallery');
+      sidebarRef.current.closeSidebar();
+      handleNewCanvas(true);
+      return;
+    }
+
     const name = currentDrawingTitle && currentDrawingTitle !== 'Untitled'
       ? currentDrawingTitle
       : prompt('Enter a name for this canvas:');
-
     if (!name) return;
 
     if (galleryView) {
@@ -181,8 +194,8 @@ export default function App() {
 
   // passing this into hamburger menu is necessary so menu doesn't close
   // unexpectedly before gallery view is opened
-  const handleGalleryClick = () => {
-    handleSave(true);
+  const handleGalleryClick = (editor) => {
+    handleSave(true, editor);
   };
 
   const handleShareCanvas = (targetUserId, role) => {
@@ -247,10 +260,15 @@ export default function App() {
     };
 
     // waits for server updates, then sends changes to canvas    
-    const onLoadState = ({ objects: serverObjects, id, name, owner_id }) => {
+    const onLoadState = ({ objects: serverObjects, id, name, owner_id, role }) => {
       setObjects(serverObjects || []);
       setCurrentCanvasId(id || null);
       setCurrentCanvasOwnerId(owner_id || null);
+      setCurrentCanvasRole(role || 'owner');
+      setCanvasAccessMode(role === 'viewer' ? 'view' : 'edit');
+      if (role === 'viewer') {
+        setTool('disabled');
+      }
       if (name) {
         setCurrentCanvasName(name);
         setCurrentDrawingTitle(name);
@@ -392,6 +410,27 @@ export default function App() {
     }
   }, [fontSize, textColor]);
 
+  // updates the most recently used tool and reloads this when changing perms
+  useEffect(() => {
+    if (canvasAccessMode === 'view') {
+      if (tool !== 'disabled') {
+        setLastEditTool(tool);
+        setTool('disabled');
+      }
+      return;
+    }
+
+    if (tool === 'disabled') {
+      setTool(lastEditTool || 'draw');
+    }
+  }, [canvasAccessMode, tool, lastEditTool]);
+
+  useEffect(() => {
+    if (tool !== 'disabled') {
+      setLastEditTool(tool);
+    }
+  }, [tool]);
+
   // updates the displayed color of one or more selected objects
   // as well as adding multi-colored option if valid 
   useEffect(() => {
@@ -432,6 +471,9 @@ export default function App() {
     return <Welcome />;
   }
 
+  // boolean to load editbars
+  const canEditCanvas = (currentCanvasRole === 'owner' || currentCanvasRole === 'editor') && canvasAccessMode === 'edit';
+
   return (
     <div className="app">
       <header className="header">
@@ -441,6 +483,7 @@ export default function App() {
           onSignOutRequest={handleSignOutRequest}
           onShareCanvas={handleShareCanvas}
           currentView={currentView}
+          canvasRole={currentCanvasRole}
           ref={sidebarRef} />
       </header>
 
@@ -459,49 +502,60 @@ export default function App() {
         <>
           <header className="header">
             <h1>{currentDrawingTitle}</h1>
+            <AccessBox
+              canvasAccessMode={canvasAccessMode}
+              setCanvasAccessMode={setCanvasAccessMode}
+              currentCanvasRole={currentCanvasRole}
+            />
           </header>
-          {tool === 'draw' && (
-            <Drawbar
-              color={color}
-              setColor={setColor}
-              brushSize={brushSize}
-              setBrushSize={setBrushSize}
-            />
-          )}
-          {tool === 'select' && (
-            <Selectbar
-              selectedObjectIds={selectedObjectIds}
-              deleteObjects={deleteObjects}
-              editColor={editColor}
-              setEditColor={setEditColor}
-              multipleColors={multipleColors}
-              setMultipleColors={setMultipleColors}
-            />
-          )}
-          {tool === 'text' && (
-            <Textbar
-              fontSize={fontSize}
-              setFontSize={setFontSize}
-              textColor={textColor}
-              setTextColor={setTextColor}
-              setInteractingWithTextbar={setInteractingWithTextbar}
-            />
-          )}
-          {tool === 'line' && (
-            <Drawbar
-              color={lineColor}
-              setColor={setLineColor}
-              brushSize={lineSize}
-              setBrushSize={setLineSize}
-            />
+          {canEditCanvas && (
+            <>
+              {tool === 'draw' && (
+                <Drawbar
+                  color={color}
+                  setColor={setColor}
+                  brushSize={brushSize}
+                  setBrushSize={setBrushSize}
+                />
+              )}
+              {tool === 'select' && (
+                <Selectbar
+                  selectedObjectIds={selectedObjectIds}
+                  deleteObjects={deleteObjects}
+                  editColor={editColor}
+                  setEditColor={setEditColor}
+                  multipleColors={multipleColors}
+                  setMultipleColors={setMultipleColors}
+                />
+              )}
+              {tool === 'text' && (
+                <Textbar
+                  fontSize={fontSize}
+                  setFontSize={setFontSize}
+                  textColor={textColor}
+                  setTextColor={setTextColor}
+                  setInteractingWithTextbar={setInteractingWithTextbar}
+                />
+              )}
+              {tool === 'line' && (
+                <Drawbar
+                  color={lineColor}
+                  setColor={setLineColor}
+                  brushSize={lineSize}
+                  setBrushSize={setLineSize}
+                />
+              )}
+            </>
           )}
           <div className="canvas-tools">
-            <Toolbar
-              tool={tool}
-              setTool={setTool}
-              handleClear={handleClear}
-              handleSave={handleSave}
-            />
+            {canEditCanvas && (
+              <Toolbar
+                tool={tool}
+                setTool={setTool}
+                handleClear={handleClear}
+                handleSave={handleSave}
+              />
+            )}
             <div className="canvas-container">
               <Canvas
                 stageRef={stageRef}

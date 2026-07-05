@@ -1,0 +1,37 @@
+@import './App.css';
+
+.access-box-container {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    /* must be below z-index of sidebar */
+    z-index: 90;
+}
+
+.access-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--toolbar-background);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.canvas-mode-label {
+  font-weight: bold;
+}
+
+.access-switcher select {
+  border: 1px solid var(--canvas-border);
+  border-radius: 4px;
+  background: var(--canvas-background);
+  color: var(--text-color);
+  padding: 4px 8px;
+  font: inherit;
+}
+
+.access-switcher select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
