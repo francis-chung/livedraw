@@ -10,6 +10,7 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
     const [isClosing, setIsClosing] = useState(false);
     const [shareUserId, setShareUserId] = useState('');
     const [shareRole, setShareRole] = useState('viewer');
+    // displays "copied" icon after copying username
     const [copyFeedback, setCopyFeedback] = useState(false);
 
     const handleShareClick = () => {
@@ -20,6 +21,7 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
         setShareUserId('');
     };
 
+    // writes user text to clipboard and temporarily shows "copied" icon
     const handleCopyId = () => {
         navigator.clipboard.writeText(user.id);
         setCopyFeedback(true);
