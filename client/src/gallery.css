@@ -130,7 +130,15 @@
   display: inline-block;
   margin-top: 0.75rem;
   font-size: 0.85rem;
-  color: #ffc107;
+  margin-top: 0.45rem;
+}
+
+.canvas-item .shared-label.editor {
+  color: #058634;
+}
+
+.canvas-item .shared-label.viewer {
+  color: #da8710;
 }
 
 .gallery-header button {

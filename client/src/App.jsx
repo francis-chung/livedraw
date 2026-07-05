@@ -38,6 +38,7 @@ export default function App() {
   const [currentCanvasName, setCurrentCanvasName] = useState(null);
   const [currentCanvasId, setCurrentCanvasId] = useState(null);
   const [currentCanvasOwnerId, setCurrentCanvasOwnerId] = useState(null);
+  const [currentCanvasRole, setCurrentCanvasRole] = useState('owner');
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const [user, setUser] = useState(null);
   const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
@@ -147,16 +148,23 @@ export default function App() {
       setCurrentCanvasId(null);
       setCurrentCanvasOwnerId(null);
       setCurrentCanvasName(null);
+      setCurrentCanvasRole('owner');
       setCurrentDrawingTitle('Untitled');
       setCurrentView('canvas');
     }
   };
 
-  const handleSave = (galleryView) => {
+  const handleSave = (galleryView, editor) => {
+    if (!editor) {
+      setCurrentView('gallery');
+      sidebarRef.current.closeSidebar();
+      handleNewCanvas(true);
+      return;
+    }
+
     const name = currentDrawingTitle && currentDrawingTitle !== 'Untitled'
       ? currentDrawingTitle
       : prompt('Enter a name for this canvas:');
-
     if (!name) return;
 
     if (galleryView) {
@@ -165,8 +173,8 @@ export default function App() {
     socket.emit('saveCanvas', { name, objects, canvasId: currentCanvasId });
   };
 
-  const handleGalleryClick = () => {
-    handleSave(true);
+  const handleGalleryClick = (editor) => {
+    handleSave(true, editor);
   };
 
   const handleShareCanvas = (targetUserId, role) => {
@@ -221,10 +229,14 @@ export default function App() {
       alert('Authentication failed. Please sign in again.');
     };
 
-    const onLoadState = ({ objects: serverObjects, id, name, owner_id }) => {
+    const onLoadState = ({ objects: serverObjects, id, name, owner_id, role }) => {
       setObjects(serverObjects || []);
       setCurrentCanvasId(id || null);
       setCurrentCanvasOwnerId(owner_id || null);
+      setCurrentCanvasRole(role || 'owner');
+      if (role === 'viewer') {
+        setTool('disabled');
+      }
       if (name) {
         setCurrentCanvasName(name);
         setCurrentDrawingTitle(name);
@@ -406,6 +418,7 @@ export default function App() {
           onSignOutRequest={handleSignOutRequest}
           onShareCanvas={handleShareCanvas}
           currentView={currentView}
+          canvasRole={currentCanvasRole}
           ref={sidebarRef} />
       </header>
 
@@ -425,48 +438,54 @@ export default function App() {
           <header className="header">
             <h1>{currentDrawingTitle}</h1>
           </header>
-          {tool === 'draw' && (
-            <Drawbar
-              color={color}
-              setColor={setColor}
-              brushSize={brushSize}
-              setBrushSize={setBrushSize}
-            />
-          )}
-          {tool === 'select' && (
-            <Selectbar
-              selectedObjectIds={selectedObjectIds}
-              deleteObjects={deleteObjects}
-              editColor={editColor}
-              setEditColor={setEditColor}
-              multipleColors={multipleColors}
-              setMultipleColors={setMultipleColors}
-            />
-          )}
-          {tool === 'text' && (
-            <Textbar
-              fontSize={fontSize}
-              setFontSize={setFontSize}
-              textColor={textColor}
-              setTextColor={setTextColor}
-              setInteractingWithTextbar={setInteractingWithTextbar}
-            />
-          )}
-          {tool === 'line' && (
-            <Drawbar
-              color={lineColor}
-              setColor={setLineColor}
-              brushSize={lineSize}
-              setBrushSize={setLineSize}
-            />
+          {(currentCanvasRole === 'owner' || currentCanvasRole === 'editor') && (
+            <>
+              {tool === 'draw' && (
+                <Drawbar
+                  color={color}
+                  setColor={setColor}
+                  brushSize={brushSize}
+                  setBrushSize={setBrushSize}
+                />
+              )}
+              {tool === 'select' && (
+                <Selectbar
+                  selectedObjectIds={selectedObjectIds}
+                  deleteObjects={deleteObjects}
+                  editColor={editColor}
+                  setEditColor={setEditColor}
+                  multipleColors={multipleColors}
+                  setMultipleColors={setMultipleColors}
+                />
+              )}
+              {tool === 'text' && (
+                <Textbar
+                  fontSize={fontSize}
+                  setFontSize={setFontSize}
+                  textColor={textColor}
+                  setTextColor={setTextColor}
+                  setInteractingWithTextbar={setInteractingWithTextbar}
+                />
+              )}
+              {tool === 'line' && (
+                <Drawbar
+                  color={lineColor}
+                  setColor={setLineColor}
+                  brushSize={lineSize}
+                  setBrushSize={setLineSize}
+                />
+              )}
+            </>
           )}
           <div className="canvas-tools">
-            <Toolbar
-              tool={tool}
-              setTool={setTool}
-              handleClear={handleClear}
-              handleSave={handleSave}
-            />
+            {(currentCanvasRole === 'owner' || currentCanvasRole === 'editor') && (
+              <Toolbar
+                tool={tool}
+                setTool={setTool}
+                handleClear={handleClear}
+                handleSave={handleSave}
+              />
+            )}
             <div className="canvas-container">
               <Canvas
                 stageRef={stageRef}

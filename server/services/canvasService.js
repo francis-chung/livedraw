@@ -126,7 +126,8 @@ async function loadCanvas(supabase, userId, name) {
         id: canvas.id,
         name: canvas.name,
         owner_id: canvas.owner_id,
-        objects: data?.objects || []
+        objects: data?.objects || [],
+        role: "owner"
     };
 }
 
@@ -141,6 +142,7 @@ async function loadCanvasById(supabase, userId, canvasId) {
     }
     if (!canvas) return null;
 
+    let role = 'owner';
     if (canvas.owner_id !== userId) {
         const { data: access, error: accessError } = await supabase
             .from('canvas_access')
@@ -154,6 +156,7 @@ async function loadCanvasById(supabase, userId, canvasId) {
         if (!access) {
             return null;
         }
+        role = access.role;
     }
 
     const { data, error: dataError } = await supabase
@@ -169,7 +172,8 @@ async function loadCanvasById(supabase, userId, canvasId) {
         id: canvas.id,
         name: canvas.name,
         owner_id: canvas.owner_id,
-        objects: data?.objects || []
+        objects: data?.objects || [],
+        role: role
     };
 }
 

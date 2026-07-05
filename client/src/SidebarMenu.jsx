@@ -2,7 +2,7 @@ import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import './sidebarMenu.css';
 import DarkMode from './DarkMode.jsx';
 
-const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOutRequest, currentView, onShareCanvas }, ref) {
+const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOutRequest, onShareCanvas, currentView, canvasRole }, ref) {
     const [isOpen, setIsOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const [shareUserId, setShareUserId] = useState('');
@@ -72,11 +72,13 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
                             <h3>Settings</h3>
                             <DarkMode />
                             {currentView === "canvas" &&
-                                <button className="gallery-button" onClick={onGalleryClick}>
+                                <button className="gallery-button"
+                                    onClick={() => onGalleryClick(canvasRole === 'owner' || canvasRole === 'editor')}
+                                >
                                     Gallery
                                 </button>}
                         </div>
-                        {currentView === "canvas" &&
+                        {currentView === "canvas" && (canvasRole === 'owner' || canvasRole === 'editor') &&
                             <div className="sidebar-settings settings">
                                 <h3>Share canvas</h3>
                                 <p>Enter another user's Supabase ID and choose a role.</p>

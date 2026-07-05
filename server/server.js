@@ -167,7 +167,8 @@ io.on('connection', async (socket) => {
                         objects: loaded.objects,
                         id: canvasId,
                         name: loaded.name,
-                        owner_id: loaded.owner_id
+                        owner_id: loaded.owner_id,
+                        role: loaded.role
                     });
                     console.log(`Canvas ${loaded.name} (${canvasId}) loaded in room ${socket.currentRoom} for user ${socket.user.id}`);
                 } else {
