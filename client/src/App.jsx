@@ -4,6 +4,7 @@ import Canvas from './Canva.jsx';
 import socket from './socket.js';
 import './App.css';
 import SidebarMenu from './SidebarMenu.jsx';
+import AccessBox from './AccessBox.jsx';
 import Drawbar from './Drawbar.jsx';
 import Selectbar from './Selectbar.jsx';
 import Textbar from './Textbar.jsx';
@@ -39,6 +40,8 @@ export default function App() {
   const [currentCanvasId, setCurrentCanvasId] = useState(null);
   const [currentCanvasOwnerId, setCurrentCanvasOwnerId] = useState(null);
   const [currentCanvasRole, setCurrentCanvasRole] = useState('owner');
+  const [canvasAccessMode, setCanvasAccessMode] = useState('edit');
+  const [lastEditTool, setLastEditTool] = useState('draw');
   const [currentDrawingTitle, setCurrentDrawingTitle] = useState('Untitled');
   const [user, setUser] = useState(null);
   const [isSignOutPromptOpen, setIsSignOutPromptOpen] = useState(false);
@@ -234,6 +237,7 @@ export default function App() {
       setCurrentCanvasId(id || null);
       setCurrentCanvasOwnerId(owner_id || null);
       setCurrentCanvasRole(role || 'owner');
+      setCanvasAccessMode(role === 'viewer' ? 'view' : 'edit');
       if (role === 'viewer') {
         setTool('disabled');
       }
@@ -373,6 +377,26 @@ export default function App() {
   }, [fontSize, textColor]);
 
   useEffect(() => {
+    if (canvasAccessMode === 'view') {
+      if (tool !== 'disabled') {
+        setLastEditTool(tool);
+        setTool('disabled');
+      }
+      return;
+    }
+
+    if (tool === 'disabled') {
+      setTool(lastEditTool || 'draw');
+    }
+  }, [canvasAccessMode, tool, lastEditTool]);
+
+  useEffect(() => {
+    if (tool !== 'disabled') {
+      setLastEditTool(tool);
+    }
+  }, [tool]);
+
+  useEffect(() => {
     if (tool !== 'select' || selectedObjectIds.length === 0) return;
     const colors = objects
       .filter(obj => selectedObjectIds.includes(obj.id))
@@ -409,6 +433,8 @@ export default function App() {
     return <Welcome />;
   }
 
+  const canEditCanvas = (currentCanvasRole === 'owner' || currentCanvasRole === 'editor') && canvasAccessMode === 'edit';
+
   return (
     <div className="app">
       <header className="header">
@@ -437,8 +463,13 @@ export default function App() {
         <>
           <header className="header">
             <h1>{currentDrawingTitle}</h1>
+            <AccessBox
+              canvasAccessMode={canvasAccessMode}
+              setCanvasAccessMode={setCanvasAccessMode}
+              currentCanvasRole={currentCanvasRole}
+            />
           </header>
-          {(currentCanvasRole === 'owner' || currentCanvasRole === 'editor') && (
+          {canEditCanvas && (
             <>
               {tool === 'draw' && (
                 <Drawbar
@@ -478,7 +509,7 @@ export default function App() {
             </>
           )}
           <div className="canvas-tools">
-            {(currentCanvasRole === 'owner' || currentCanvasRole === 'editor') && (
+            {canEditCanvas && (
               <Toolbar
                 tool={tool}
                 setTool={setTool}
