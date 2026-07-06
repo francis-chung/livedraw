@@ -6,5 +6,11 @@
     "client": "npm run dev --prefix client",
     "server": "nodemon server/server.js",
     "dev": "concurrently \"npm run client\" \"npm run server\""
+  },
+  "dependencies": {
+    "@iconify-react/line-md": "^1.0.2",
+    "@iconify-react/material-symbols": "^1.0.24",
+    "@iconify-react/mdi": "^1.0.2",
+    "@iconify-react/ph": "^1.0.2"
   }
 }
