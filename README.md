@@ -2,9 +2,7 @@
 
 Livedraw is a real-time collaborative drawing application built in React, Vite, Socket.IO and Supabase. Users can create canvases, save them to the cloud, share them with collaborators and draw together in real time. Designed as a full-stack project, Livedraw focuses on synchronizing shared state across multiple clients while maintaining secure and persistent data storage. 
 
-## Screenshots
-
-// ADD SOON // 
+![demo](client/src/assets/demo_recording.gif)
 
 ## Features
 - Real-time canvas synchronization through Socket.IO
