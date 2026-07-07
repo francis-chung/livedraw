@@ -11,6 +11,7 @@
     "@iconify-react/line-md": "^1.0.2",
     "@iconify-react/material-symbols": "^1.0.24",
     "@iconify-react/mdi": "^1.0.2",
-    "@iconify-react/ph": "^1.0.2"
+    "@iconify-react/ph": "^1.0.2",
+    "@iconify-react/tabler": "^1.0.9"
   }
 }

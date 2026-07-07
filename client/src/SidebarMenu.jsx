@@ -1,6 +1,8 @@
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import './sidebarMenu.css';
 import DarkMode from './DarkMode.jsx';
+import CheckIcon from '@iconify-react/material-symbols/check'
+import ClipboardIcon from '@iconify-react/tabler/clipboard';
 
 const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSignOutRequest, onShareCanvas, currentView, canvasRole }, ref) {
     const [isOpen, setIsOpen] = useState(false);
@@ -109,7 +111,7 @@ const SidebarMenu = forwardRef(function SidebarMenu({ user, onGalleryClick, onSi
                                     }}
                                     title="Copy ID"
                                 >
-                                    {copyFeedback ? '✓' : '📋'}
+                                    {copyFeedback ? <CheckIcon height="1em" /> : <ClipboardIcon height="1em" />}
                                 </span>
                             </button>
                             <button className="sign-out" onClick={onSignOutRequest}>
