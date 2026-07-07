@@ -1,70 +1,62 @@
-# Getting Started with Create React App
+# Livedraw
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Livedraw is a real-time collaborative drawing application built in React, Vite, Socket.IO and Supabase. Users can create canvases, save them to the cloud, share them with collaborators and draw together in real time. Designed as a full-stack project, Livedraw focuses on synchronizing shared state across multiple clients while maintaining secure and persistent data storage. 
 
-## Available Scripts
+## Screenshots
 
-In the project directory, you can run:
+// ADD SOON // 
 
-### `npm start`
+## Features
+- Real-time canvas synchronization through Socket.IO
+- Freehand drawing, line, text and object selection tools
+- Cloud-saved drawings managed in a gallery
+- Google authentication through Supabase OAuth
+- Role-based sharing (Owner, Editor, Viewer)
+- Persistent storage using PostgreSQL in Supabase
+- Responsive React interface through Konva
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Tech Stack
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+| Frontend | Backend | Database & Auth |
+| --- | --- | --- |
+| React, Vite, Konva | Node.js, Express, Socket.IO | Supabase PostgreSQL, Supabase Auth |
 
-### `npm test`
+## Technical Highlights
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+This project focuses on building a responsive collaborative editing experience while keeping the system scalable and secure. Some key implementation details include: 
 
-### `npm run build`
+- Live synchronization using Socket.IO rooms
+- Server-side authentication and permission checks before executing protected canvas operations
+- Access control using different roles
+- Clear separation between UI state and server application state
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Challenges
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The primary learning curve in this project was utilizing an event-driven architecture with Socket.IO. Since real-time collaboration requires the client and server to continuously exchange events and maintain an accurate understanding of the canvas state, rethinking application logic and transforming user actions into broadcasted events was necessary. 
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Installation
 
-### `npm run eject`
+```bash
+git clone https://github.com/francis-chung/livedraw.git
+cd livedraw
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+npm install
+npm install --prefix client
+npm install --prefix server
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+npm run dev
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Configure the required Supabase environment variables for both the client and server before running the application. 
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Future Improvements
 
-## Learn More
+- Undo/redo history
+- Keybind shortcuts
+- Zooming and panning
+- Additional drawing tools and shapes
+- Mobile optimization
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## License
 
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+This project is licensed under the [MIT](LICENSE) license. 
