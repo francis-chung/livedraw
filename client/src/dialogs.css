@@ -46,7 +46,9 @@
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.95rem;
-  transition: transform 0.15s ease, background 0.2s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease;
 }
 
 .modal-button.cancel {

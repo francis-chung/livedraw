@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Line, Text, Rect, Group } from 'react-konva';
 import socket from './socket.js';
 import './App.css';
@@ -6,7 +6,26 @@ import { TextPath } from 'konva/lib/shapes/TextPath';
 import { Path } from 'konva/lib/shapes/Path';
 import { getFlatPoints, renderObject } from './utils.jsx';
 
-export default function Canvas({ stageRef, tool, setTool, color, brushSize, fontSize, textColor, lineSize, lineColor, objects, setObjects, selectedObjectIds, setSelectedObjectIds, hoveredObjectIds, setHoveredObjectIds, editingText, setEditingText, setIsChangingText }) {
+export default function Canvas({
+  stageRef,
+  tool,
+  setTool,
+  color,
+  brushSize,
+  fontSize,
+  textColor,
+  lineSize,
+  lineColor,
+  objects,
+  setObjects,
+  selectedObjectIds,
+  setSelectedObjectIds,
+  hoveredObjectIds,
+  setHoveredObjectIds,
+  editingText,
+  setEditingText,
+  setIsChangingText,
+}) {
   const groupRef = useRef(null);
   const isDrawing = useRef(false);
   const drawStart = useRef(null);
@@ -56,30 +75,39 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
   const renderSelectionRect = (object, select, marquee, dx = 0, dy = 0) => {
     if (!object) return null;
-    const { x, y, width, height } = (object.type === 'box' ? object : getObjectBounds(object));
-    return <Rect
-      key={object.id}
-      x={x + dx}
-      y={y + dy}
-      width={width}
-      height={height}
-      stroke={marquee ? "#8ebde0" : "#0078d4"}
-      dash={select ? [6, 4] : [1, 0]}
-      listening={false}
-    />;
+    const { x, y, width, height } =
+      object.type === 'box' ? object : getObjectBounds(object);
+    return (
+      <Rect
+        key={object.id}
+        x={x + dx}
+        y={y + dy}
+        width={width}
+        height={height}
+        stroke={marquee ? '#8ebde0' : '#0078d4'}
+        dash={select ? [6, 4] : [1, 0]}
+        listening={false}
+      />
+    );
   };
 
   const renderSelectionsRect = (drag = false) => {
     return selectedObjectIds.map((id) => {
       const object = objects.find((item) => item.id === id);
-      return renderSelectionRect(object, true, false, drag ? dragPos.x : 0, drag ? dragPos.y : 0);
+      return renderSelectionRect(
+        object,
+        true,
+        false,
+        drag ? dragPos.x : 0,
+        drag ? dragPos.y : 0
+      );
     });
   };
 
   const renderHoverRect = () => {
     return objects
-      .filter(obj => hoveredObjectIds.includes(obj.id))
-      .map(obj => renderSelectionRect(obj, false, false));
+      .filter((obj) => hoveredObjectIds.includes(obj.id))
+      .map((obj) => renderSelectionRect(obj, false, false));
   };
 
   const renderMarqueeRect = () => {
@@ -126,7 +154,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           value: '',
           color: textColor,
           fontSize,
-          width: 0
+          width: 0,
         });
       }, 0);
     } else if (tool === 'line') {
@@ -139,8 +167,8 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           y,
           color: lineColor,
           width: lineSize,
-          points: [{ x: 0, y: 0 }]
-        }
+          points: [{ x: 0, y: 0 }],
+        };
         setObjects((prev) => [...prev, line]);
         currentStrokeId.current = line.id;
         lineStart.current = { x, y };
@@ -156,34 +184,48 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
 
     if (tool === 'draw' && isDrawing.current) {
       const { x: startX, y: startY } = drawStart.current;
-      setObjects((prev) => prev.map((object) => {
-        if (object.id !== currentStrokeId.current) return object;
-        return { ...object, points: [...object.points, { x: x - startX, y: y - startY }] };
-      }));
+      setObjects((prev) =>
+        prev.map((object) => {
+          if (object.id !== currentStrokeId.current) return object;
+          return {
+            ...object,
+            points: [...object.points, { x: x - startX, y: y - startY }],
+          };
+        })
+      );
     } else if (tool === 'select' && isSelecting.current) {
       const start = selectionStart.current;
       setSelectionBox({
         x: Math.min(start.x, x),
         y: Math.min(start.y, y),
         width: Math.abs(x - start.x),
-        height: Math.abs(y - start.y)
+        height: Math.abs(y - start.y),
       });
-      setHoveredObjectIds(objects
-        .filter(obj => haveIntersection(getObjectBounds(obj), selectionBox))
-        .map(obj => obj.id)
+      setHoveredObjectIds(
+        objects
+          .filter((obj) => haveIntersection(getObjectBounds(obj), selectionBox))
+          .map((obj) => obj.id)
       );
     } else if (tool === 'line' && isLining.current) {
       const { x: startX, y: startY } = lineStart.current;
-      setObjects((prev) => prev.map((obj) => {
-        if (obj.id !== currentStrokeId.current) return obj;
-        return { ...obj, points: [{ x: 0, y: 0 }, { x: x - startX, y: y - startY }] };
-      }))
+      setObjects((prev) =>
+        prev.map((obj) => {
+          if (obj.id !== currentStrokeId.current) return obj;
+          return {
+            ...obj,
+            points: [
+              { x: 0, y: 0 },
+              { x: x - startX, y: y - startY },
+            ],
+          };
+        })
+      );
     }
   };
 
   const handleStageMouseUp = () => {
     if (isDrawing.current) {
-      const stroke = objects.find(obj => obj.id === currentStrokeId.current);
+      const stroke = objects.find((obj) => obj.id === currentStrokeId.current);
       socket.emit('addObject', stroke);
       isDrawing.current = false;
       currentStrokeId.current = null;
@@ -193,7 +235,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
           const objBox = getObjectBounds(obj);
           return haveIntersection(objBox, selectionBox);
         });
-        setSelectedObjectIds(selected.map(obj => obj.id));
+        setSelectedObjectIds(selected.map((obj) => obj.id));
       }
       isSelecting.current = false;
       setSelectionBox(null);
@@ -205,7 +247,7 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       setSelectedObjectIds([object.id]);
       setHoveredObjectIds([]);
     } else if (tool === 'line' && object.id === currentStrokeId.current) {
-      const line = objects.find(obj => obj.id === currentStrokeId.current);
+      const line = objects.find((obj) => obj.id === currentStrokeId.current);
       socket.emit('addObject', line);
       isLining.current = false;
       currentStrokeId.current = null;
@@ -228,13 +270,13 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
     isDragging.current = false;
     const { x, y } = e.target.position();
 
-    setObjects(prev =>
-      prev.map(obj => {
+    setObjects((prev) =>
+      prev.map((obj) => {
         if (!selectedObjectIds.includes(obj.id)) return obj;
         return {
           ...obj,
           x: obj.x + x,
-          y: obj.y + y
+          y: obj.y + y,
         };
       })
     );
@@ -255,9 +297,9 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       setIsChangingText,
       setEditingText,
       isLining,
-      currentStrokeId
-    })
-  }
+      currentStrokeId,
+    });
+  };
 
   useEffect(() => {
     if (tool !== 'select') {
@@ -266,7 +308,10 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
   }, [tool]);
 
   return (
-    <div className="konva-canvas" style={{ position: 'relative', width: stageWidth, height: stageHeight }}>
+    <div
+      className="konva-canvas"
+      style={{ position: 'relative', width: stageWidth, height: stageHeight }}
+    >
       <Stage
         width={stageWidth}
         height={stageHeight}
@@ -281,7 +326,11 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
       >
         <Layer>
           {objects
-            .filter((object) => !selectedObjectIds.includes(object.id) && (!editingText || object.id !== editingText.id))
+            .filter(
+              (object) =>
+                !selectedObjectIds.includes(object.id) &&
+                (!editingText || object.id !== editingText.id)
+            )
             .map(renderObjects)}
 
           {selectedObjectIds.length > 0 && (
@@ -292,14 +341,18 @@ export default function Canvas({ stageRef, tool, setTool, color, brushSize, font
               onDragMove={handleGroupDragMove}
               onDragEnd={handleGroupDragEnd}
             >
-              {objects.filter(obj => selectedObjectIds.includes(obj.id)).map(renderObjects)}
+              {objects
+                .filter((obj) => selectedObjectIds.includes(obj.id))
+                .map(renderObjects)}
             </Group>
           )}
 
           {tool === 'select' && !isDragging.current && renderSelectionsRect()}
           {isDragging.current && renderSelectionsRect(true)}
-          {hoveredObjectIds && !editingText
-            && !selectedObjectIds.includes(hoveredObjectIds[0]) && renderHoverRect()}
+          {hoveredObjectIds &&
+            !editingText &&
+            !selectedObjectIds.includes(hoveredObjectIds[0]) &&
+            renderHoverRect()}
           {selectionBox && renderMarqueeRect()}
         </Layer>
       </Stage>

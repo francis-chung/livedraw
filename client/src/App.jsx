@@ -64,15 +64,20 @@ export default function App() {
           return;
         }
 
-        const { data: { session } } = await supabaseRef.current.auth.getSession();
+        const {
+          data: { session },
+        } = await supabaseRef.current.auth.getSession();
 
         if (session?.access_token && session?.user) {
           setUser({
             id: session.user.id,
             email: session.user.email,
-            name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+            name:
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
+              '',
             picture: session.user.user_metadata?.avatar_url || '',
-            accessToken: session.access_token
+            accessToken: session.access_token,
           });
         }
       } catch (error) {
@@ -85,24 +90,27 @@ export default function App() {
     checkSession();
 
     if (supabaseRef.current) {
-      const { data: { subscription } } = supabaseRef.current.auth.onAuthStateChange(
-        async (event, session) => {
-          if (event === 'SIGNED_IN' && session?.access_token) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email,
-              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
-              picture: session.user.user_metadata?.avatar_url || '',
-              accessToken: session.access_token
-            });
-          } else if (event === 'SIGNED_OUT') {
-            setUser(null);
-            if (socket.connected) {
-              socket.disconnect();
-            }
+      const {
+        data: { subscription },
+      } = supabaseRef.current.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.access_token) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            name:
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
+              '',
+            picture: session.user.user_metadata?.avatar_url || '',
+            accessToken: session.access_token,
+          });
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          if (socket.connected) {
+            socket.disconnect();
           }
         }
-      );
+      });
 
       return () => subscription?.unsubscribe();
     }
@@ -165,9 +173,10 @@ export default function App() {
       return;
     }
 
-    const name = currentDrawingTitle && currentDrawingTitle !== 'Untitled'
-      ? currentDrawingTitle
-      : prompt('Enter a name for this canvas:');
+    const name =
+      currentDrawingTitle && currentDrawingTitle !== 'Untitled'
+        ? currentDrawingTitle
+        : prompt('Enter a name for this canvas:');
     if (!name) return;
 
     if (galleryView) {
@@ -192,15 +201,15 @@ export default function App() {
     socket.emit('shareCanvas', {
       canvasId: currentCanvasId,
       targetUserId,
-      role
+      role,
     });
   };
 
   const deleteObjects = (objectIds) => {
-    setObjects((prev) => prev.filter(obj => !objectIds.includes(obj.id)));
+    setObjects((prev) => prev.filter((obj) => !objectIds.includes(obj.id)));
     setSelectedObjectIds([]);
     socket.emit('deleteObjects', objectIds);
-  }
+  };
 
   useEffect(() => {
     document.body.classList.remove('preload');
@@ -210,7 +219,7 @@ export default function App() {
     if (!user) return;
 
     socket.auth = {
-      accessToken: user.accessToken
+      accessToken: user.accessToken,
     };
 
     const onConnect = () => {
@@ -232,7 +241,13 @@ export default function App() {
       alert('Authentication failed. Please sign in again.');
     };
 
-    const onLoadState = ({ objects: serverObjects, id, name, owner_id, role }) => {
+    const onLoadState = ({
+      objects: serverObjects,
+      id,
+      name,
+      owner_id,
+      role,
+    }) => {
       setObjects(serverObjects || []);
       setCurrentCanvasId(id || null);
       setCurrentCanvasOwnerId(owner_id || null);
@@ -254,40 +269,38 @@ export default function App() {
     };
 
     const onUpdateObjects = (updatedObjects) => {
-      const updates = new Map(
-        updatedObjects.map(obj => [obj.id, obj])
-      );
-      setObjects((prev) => prev.map(obj =>
-        updates.get(obj.id) || obj
-      ));
+      const updates = new Map(updatedObjects.map((obj) => [obj.id, obj]));
+      setObjects((prev) => prev.map((obj) => updates.get(obj.id) || obj));
     };
 
     const onMoveObjects = (ids, dp) => {
       const idSet = new Set(ids);
-      setObjects((prev) => prev.map((obj) => {
-        if (!idSet.has(obj.id)) return obj;
-        if (obj.type === 'stroke') {
-          return {
-            ...obj,
-            points: obj.points.map(p => ({
-              x: p.x + dp.x,
-              y: p.y + dp.y
-            }))
-          };
-        }
-        if (obj.type === 'text') {
-          return {
-            ...obj,
-            x: obj.x + dp.x,
-            y: obj.y + dp.y
-          };
-        }
-        return obj;
-      }));
+      setObjects((prev) =>
+        prev.map((obj) => {
+          if (!idSet.has(obj.id)) return obj;
+          if (obj.type === 'stroke') {
+            return {
+              ...obj,
+              points: obj.points.map((p) => ({
+                x: p.x + dp.x,
+                y: p.y + dp.y,
+              })),
+            };
+          }
+          if (obj.type === 'text') {
+            return {
+              ...obj,
+              x: obj.x + dp.x,
+              y: obj.y + dp.y,
+            };
+          }
+          return obj;
+        })
+      );
     };
 
     const onDeleteObjects = (ids) => {
-      setObjects((prev) => prev.filter(obj => !ids.includes(obj.id)));
+      setObjects((prev) => prev.filter((obj) => !ids.includes(obj.id)));
     };
 
     const onClear = () => {
@@ -311,7 +324,7 @@ export default function App() {
 
     const onShareSuccess = ({ canvasId, targetUserId, role }) => {
       alert(`Canvas shared with ${targetUserId} as ${role}`);
-    }
+    };
 
     const onSaveError = (error) => {
       pendingNavigationViewRef.current = null;
@@ -324,7 +337,7 @@ export default function App() {
 
     const onShareError = (error) => {
       alert(`Error sharing canvas: ${error}`);
-    }
+    };
 
     socket.on('connect', onConnect);
     socket.on('sessionVerified', onSessionVerified);
@@ -372,7 +385,7 @@ export default function App() {
 
   useEffect(() => {
     if (editingText) {
-      setEditingText(prev => ({ ...prev, fontSize, color: textColor }));
+      setEditingText((prev) => ({ ...prev, fontSize, color: textColor }));
     }
   }, [fontSize, textColor]);
 
@@ -399,8 +412,8 @@ export default function App() {
   useEffect(() => {
     if (tool !== 'select' || selectedObjectIds.length === 0) return;
     const colors = objects
-      .filter(obj => selectedObjectIds.includes(obj.id))
-      .map(obj => obj.color);
+      .filter((obj) => selectedObjectIds.includes(obj.id))
+      .map((obj) => obj.color);
     setEditColor(colors[0]);
     for (const color of colors) {
       if (color !== colors[0]) {
@@ -411,18 +424,29 @@ export default function App() {
 
   useEffect(() => {
     if (multipleColors) return;
-    setObjects(prev => prev.map(obj => {
-      if (!selectedObjectIds.includes(obj.id)) return obj;
-      return { ...obj, color: editColor };
-    }));
-    const updatedObjects = objects.filter(obj => selectedObjectIds.includes(obj.id));
+    setObjects((prev) =>
+      prev.map((obj) => {
+        if (!selectedObjectIds.includes(obj.id)) return obj;
+        return { ...obj, color: editColor };
+      })
+    );
+    const updatedObjects = objects.filter((obj) =>
+      selectedObjectIds.includes(obj.id)
+    );
     socket.emit('updateObjects', updatedObjects);
   }, [editColor]);
 
   if (isCheckingSession) {
     return (
       <div className="app">
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+          }}
+        >
           <p>Loading...</p>
         </div>
       </div>
@@ -433,7 +457,9 @@ export default function App() {
     return <Welcome />;
   }
 
-  const canEditCanvas = (currentCanvasRole === 'owner' || currentCanvasRole === 'editor') && canvasAccessMode === 'edit';
+  const canEditCanvas =
+    (currentCanvasRole === 'owner' || currentCanvasRole === 'editor') &&
+    canvasAccessMode === 'edit';
 
   return (
     <div className="app">
@@ -445,20 +471,24 @@ export default function App() {
           onShareCanvas={handleShareCanvas}
           currentView={currentView}
           canvasRole={currentCanvasRole}
-          ref={sidebarRef} />
+          ref={sidebarRef}
+        />
       </header>
 
-      {isSignOutPromptOpen && <ConfirmSignOut
-        handleCancelSignOut={handleCancelSignOut}
-        handleConfirmSignOut={handleConfirmSignOut} />
-      }
+      {isSignOutPromptOpen && (
+        <ConfirmSignOut
+          handleCancelSignOut={handleCancelSignOut}
+          handleConfirmSignOut={handleConfirmSignOut}
+        />
+      )}
       {currentView === 'gallery' ? (
         <Gallery
           user={user}
           isAuthenticated={isAuthenticated}
           setCurrentView={setCurrentView}
           onNewCanvas={handleNewCanvas}
-          setCurrentDrawingTitle={setCurrentDrawingTitle} />
+          setCurrentDrawingTitle={setCurrentDrawingTitle}
+        />
       ) : (
         <>
           <header className="header">
@@ -540,7 +570,9 @@ export default function App() {
               />
               {tool === 'text' && editingText && (
                 <Textbox
-                  stageBox={stageRef.current.container().getBoundingClientRect()}
+                  stageBox={stageRef.current
+                    .container()
+                    .getBoundingClientRect()}
                   objects={objects}
                   setObjects={setObjects}
                   editingText={editingText}

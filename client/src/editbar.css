@@ -1,77 +1,77 @@
 @import './App.css';
 
 .editbar {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 10px 20px;
-    background-color: var(--toolbar-background);
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: background-color 0.3s;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px 20px;
+  background-color: var(--toolbar-background);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s;
 }
 
 .editbar h2 {
-    font-size: 19px;
-    color: #aca3a3;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding: 2px;
+  font-size: 19px;
+  color: #aca3a3;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 2px;
 }
 
 .edit-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .edit-group label {
-    font-weight: bold;
+  font-weight: bold;
 }
 
 .color-wrapper {
-    position: relative;
-    width: 50px;
-    height: 27px;
-    margin-right: 55px;
+  position: relative;
+  width: 50px;
+  height: 27px;
+  margin-right: 55px;
 }
 
 .multiple-colors {
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-        45deg, 
-        transparent 0px, 
-        transparent 6px, 
-        rgba(255, 255, 255, 0.6) 6px, 
-        rgba(255, 255, 255, 0.6) 12px
-    );
-    pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent 0px,
+    transparent 6px,
+    rgba(255, 255, 255, 0.6) 6px,
+    rgba(255, 255, 255, 0.6) 12px
+  );
+  pointer-events: none;
 }
 
 .delete {
-    padding: 5.5px 16px;
-    background-color: var(--danger);
-    color: #ffffff;
-    border: none;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-    cursor: pointer;
-    font-size: 14px;
+  padding: 5.5px 16px;
+  background-color: var(--danger);
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  font-size: 14px;
 }
 
 .delete:hover {
-    background-color: var(--danger-hover);
+  background-color: var(--danger-hover);
 }
 
 .textbox-container {
-    position: absolute;
-    z-index: 10;
-    border: none;
-    padding: 0;
-    background: transparent;
-    outline: none;
-    resize: none;
-    overflow: hidden;
+  position: absolute;
+  z-index: 10;
+  border: none;
+  padding: 0;
+  background: transparent;
+  outline: none;
+  resize: none;
+  overflow: hidden;
 }

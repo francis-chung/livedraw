@@ -15,7 +15,9 @@
   padding: 1rem;
   background-color: var(--background-color);
   border-bottom: 1px solid var(--gallery-border);
-  transition: background 0.3s, border-bottom 0.3s;
+  transition:
+    background 0.3s,
+    border-bottom 0.3s;
 }
 
 .gallery-header h1 {
@@ -79,7 +81,9 @@
   padding: 1rem;
   text-align: center;
   background-color: var(--background-color);
-  transition: background 0.3s, border 0.3s;
+  transition:
+    background 0.3s,
+    border 0.3s;
 }
 
 .canvas-item h3 {
@@ -150,7 +154,9 @@
   padding: 0.75rem 1.25rem;
   border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .gallery-header button:hover {

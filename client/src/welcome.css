@@ -5,7 +5,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, rgba(83, 130, 255, 0.14), transparent 60%);
+  background: linear-gradient(
+    180deg,
+    rgba(83, 130, 255, 0.14),
+    transparent 60%
+  );
   font-family: 'Inter', sans-serif;
 }
 

@@ -6,56 +6,60 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export default function Welcome() {
-    const [error, setError] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-            setError('Supabase configuration is missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in client/.env');
-            return;
-        }
-    }, []);
+  useEffect(() => {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      setError(
+        'Supabase configuration is missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in client/.env'
+      );
+      return;
+    }
+  }, []);
 
-    const handleGoogleSignIn = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log(supabase);
-            const { data, error: signInError } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: `${window.location.origin}`
-                }
-            });
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log(supabase);
+      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}`,
+        },
+      });
 
-            if (signInError) {
-                throw signInError;
-            }
+      if (signInError) {
+        throw signInError;
+      }
+    } catch (err) {
+      setIsLoading(false);
+      console.error('Sign-in error:', err);
+      setError(`Unable to sign in: ${err.message || 'Unknown error'}`);
+    }
+  };
 
-        } catch (err) {
-            setIsLoading(false);
-            console.error('Sign-in error:', err);
-            setError(`Unable to sign in: ${err.message || 'Unknown error'}`);
-        }
-    };
+  return (
+    <div className="welcome-page">
+      <div className="welcome-card">
+        <h1>Welcome to Livedraw</h1>
+        <p>
+          Sign in with Google to keep your canvases tied to your account and
+          resume work later.
+        </p>
 
-    return (
-        <div className="welcome-page">
-            <div className="welcome-card">
-                <h1>Welcome to Livedraw</h1>
-                <p>Sign in with Google to keep your canvases tied to your account and resume work later.</p>
+        <button
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+          className="google-button"
+        >
+          {isLoading ? 'Signing in...' : 'Sign in with Google'}
+        </button>
 
-                <button
-                    onClick={handleGoogleSignIn}
-                    disabled={isLoading}
-                    className="google-button"
-                >
-                    {isLoading ? 'Signing in...' : 'Sign in with Google'}
-                </button>
-
-                {error && <div className="welcome-error">{error}</div>}
-            </div>
-        </div>
-    );
+        {error && <div className="welcome-error">{error}</div>}
+      </div>
+    </div>
+  );
 }

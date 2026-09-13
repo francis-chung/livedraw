@@ -18,7 +18,9 @@ body {
   padding: 0;
   background-color: var(--background-color);
   color: var(--text-color);
-  transition: background 0.3s, color 0.3s;
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
 
 body.light {
