@@ -73,14 +73,14 @@ io.on('connection', async (socket) => {
 
     socket.on('addObject', (object) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(canvasStates, socket.user.id, socket.currentCanvas);
+        const objects = getCanvasState(canvasStates, socket.currentCanvas);
         objects.push(object);
         socket.to(socket.currentRoom).emit('addObject', object);
     });
 
     socket.on('updateObjects', (updatedObjects) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(canvasStates, socket.user.id, socket.currentCanvas);
+        const objects = getCanvasState(canvasStates, socket.currentCanvas);
         const key = `${socket.user.id}:${socket.currentCanvas}`;
         const updates = new Map(
             updatedObjects.map(obj => [obj.id, obj])
@@ -93,7 +93,7 @@ io.on('connection', async (socket) => {
 
     socket.on('moveObjects', (ids, dp) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(canvasStates, socket.user.id, socket.currentCanvas);
+        const objects = getCanvasState(canvasStates, socket.currentCanvas);
         const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = objects.map((obj) => {
             if (!ids.includes(obj.id)) return obj;
@@ -120,7 +120,7 @@ io.on('connection', async (socket) => {
 
     socket.on('deleteObjects', (ids) => {
         if (!socket.currentCanvas || !socket.user) return;
-        const objects = getCanvasState(canvasStates, socket.user.id, socket.currentCanvas);
+        const objects = getCanvasState(canvasStates, socket.currentCanvas);
         const key = `${socket.user.id}:${socket.currentCanvas}`;
         canvasStates[key] = objects.filter((obj) => !ids.includes(obj.id));
         socket.to(socket.currentRoom).emit('deleteObjects', ids);
