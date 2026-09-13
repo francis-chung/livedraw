@@ -161,10 +161,16 @@ io.on('connection', async (socket) => {
             if (loaded !== null) {
                 const canvasId = loaded.id || null;
                 if (canvasId) {
-                    canvasStates[`canvas:${canvasId}`] = loaded.objects;
+                    const memKey = `canvas:${canvasId}`;
+                    const inMemory = canvasStates[memKey];
+                    if (inMemory) {
+                      canvasStates[memKey] = inMemory;
+                    } else {
+                      canvasStates[memKey] = loaded.objects;
+                    }
                     joinCanvas(canvasStates, socket, canvasId);
                     socket.emit('loadState', {
-                        objects: loaded.objects,
+                        objects: canvasStates[memKey],
                         id: canvasId,
                         name: loaded.name,
                         owner_id: loaded.owner_id,
